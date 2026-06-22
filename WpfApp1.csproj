@@ -50,14 +50,13 @@
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
   </ItemGroup>
-  <!-- 海康SDK引用 - 需要手动添加DLL引用 -->
-  <!-- 请在Visual Studio中右键"引用" -> "添加引用" -> "浏览" -> 选择以下文件：
-       C:\Program Files (x86)\MVS\Development\Lib\Win64\MvCamCtrl.NET.dll
-       或从NuGet安装 MvCameraControl.Net 包
-  -->
+  <!-- 海康SDK引用 -->
+  <!-- 在Visual Studio中: 右键"引用" -> "添加引用" -> "浏览" -> 选择 MvCameraControl.dll -->
+  <!-- 新版MVS DLL路径: C:\Program Files (x86)\Common Files\MVS\Runtime\Win64_x64\MvCameraControl.dll -->
   <ItemGroup>
     <Reference Include="MvCamCtrl.NET">
-      <HintPath>$(ProgramFiles)\MVS\Development\Lib\Win64\MvCamCtrl.NET.dll</HintPath>
+      <HintPath>C:\Program Files (x86)\Common Files\MVS\Runtime\Win64_x64\MvCameraControl.dll</HintPath>
+      <Private>true</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
