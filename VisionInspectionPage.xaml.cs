@@ -163,32 +163,8 @@ namespace WpfApp1
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-            }
-            catch (BadImageFormatException)
-            {
-                // DLL加载失败，可能是32位/64位不匹配
-                string errorMsg = "海康SDK加载失败！请确保：\n\n" +
-                    "1. 已安装海康机器视觉SDK (MVS)\n" +
-                    "2. 项目平台目标设置为 x64（菜单: 生成 -> 配置管理器 -> 平台 -> x64）\n" +
-                    "3. MVS安装目录下的DLL文件已复制到程序运行目录\n\n" +
-                    "默认DLL位置: C:\\Program Files (x86)\\MVS\\Development\\Lib\\win64";
-                
-                Log("错误: 海康SDK DLL加载失败！请检查SDK安装和平台设置");
-                MessageBox.Show(errorMsg, "SDK加载错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            catch (DllNotFoundException ex)
-            {
-                string errorMsg = $"未找到海康SDK DLL文件！\n\n{ex.Message}\n\n" +
-                    "请安装海康机器视觉SDK (MVS)\n" +
-                    "下载地址: https://www.hikvision.com/cn/support/tools/hikvision-tools/hikvision-mvs/";
-                
-                Log($"错误: 未找到SDK DLL - {ex.Message}");
-                MessageBox.Show(errorMsg, "DLL缺失", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
 
-                Log($"找到 {deviceList.nDeviceNum} 个设备");
+                Log("找到 " + deviceList.nDeviceNum + " 个设备");
 
                 // 获取设备信息
                 IntPtr pDeviceInfo = deviceList.pDeviceInfo;
@@ -196,7 +172,7 @@ namespace WpfApp1
                 
                 // 读取序列号
                 string serialNumber = System.Text.Encoding.ASCII.GetString(deviceInfo.chSerialNumber).Trim('\0');
-                Log($"设备序列号: {serialNumber}");
+                Log("设备序列号: " + serialNumber);
 
                 Dispatcher.Invoke(() =>
                 {
@@ -209,7 +185,7 @@ namespace WpfApp1
                 nRet = MV_CC_CreateHandle(ref _deviceHandle, ref deviceInfo);
                 if (nRet != 0)
                 {
-                    Log($"错误: 创建设备句柄失败，错误码: 0x{nRet:X}");
+                    Log("错误: 创建设备句柄失败，错误码: 0x" + nRet.ToString("X"));
                     return;
                 }
 
@@ -217,7 +193,7 @@ namespace WpfApp1
                 nRet = MV_CC_OpenDevice(_deviceHandle, 1, 0);  // nAccessMode=1 (读写), nSwitchMode=0
                 if (nRet != 0)
                 {
-                    Log($"错误: 打开设备失败，错误码: 0x{nRet:X}");
+                    Log("错误: 打开设备失败，错误码: 0x" + nRet.ToString("X"));
                     MV_CC_DestroyHandle(_deviceHandle);
                     _deviceHandle = IntPtr.Zero;
                     return;
@@ -238,10 +214,31 @@ namespace WpfApp1
                 });
 
             }
+            catch (BadImageFormatException)
+            {
+                // DLL加载失败，可能是32位/64位不匹配
+                string errorMsg = "海康SDK加载失败！请确保：\n\n" +
+                    "1. 已安装海康机器视觉SDK (MVS)\n" +
+                    "2. 项目平台目标设置为 x64（菜单: 生成 -> 配置管理器 -> 平台 -> x64）\n" +
+                    "3. MVS安装目录下的DLL文件已复制到程序运行目录\n\n" +
+                    "默认DLL位置: C:\\Program Files (x86)\\MVS\\Development\\Lib\\win64";
+                
+                Log("错误: 海康SDK DLL加载失败！请检查SDK安装和平台设置");
+                MessageBox.Show(errorMsg, "SDK加载错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch (DllNotFoundException ex)
+            {
+                string errorMsg = "未找到海康SDK DLL文件！\n\n" + ex.Message + "\n\n" +
+                    "请安装海康机器视觉SDK (MVS)\n" +
+                    "下载地址: https://www.hikvision.com/cn/support/tools/hikvision-tools/hikvision-mvs/";
+                
+                Log("错误: 未找到SDK DLL - " + ex.Message);
+                MessageBox.Show(errorMsg, "DLL缺失", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
             catch (Exception ex)
             {
-                Log($"连接异常: {ex.Message}");
-                MessageBox.Show($"连接异常: {ex.Message}", "错误", 
+                Log("连接异常: " + ex.Message);
+                MessageBox.Show("连接异常: " + ex.Message, "错误", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -267,7 +264,7 @@ namespace WpfApp1
                 int nRet = MV_CC_StartGrabbing(_deviceHandle);
                 if (nRet != 0)
                 {
-                    Log($"错误: 开始采集失败，错误码: 0x{nRet:X}");
+                    Log("错误: 开始采集失败，错误码: 0x" + nRet.ToString("X"));
                     return;
                 }
 
@@ -295,7 +292,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                Log($"开始采集异常: {ex.Message}");
+                Log("开始采集异常: " + ex.Message);
             }
         }
 
@@ -330,7 +327,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => Log($"采集线程异常: {ex.Message}"));
+                Dispatcher.Invoke(() => Log("采集线程异常: " + ex.Message));
             }
             finally
             {
@@ -446,7 +443,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                Log($"停止采集异常: {ex.Message}");
+                Log("停止采集异常: " + ex.Message);
             }
         }
 
@@ -496,7 +493,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                Log($"断开连接异常: {ex.Message}");
+                Log("断开连接异常: " + ex.Message);
             }
         }
 
@@ -509,7 +506,7 @@ namespace WpfApp1
         private void Log(string message)
         {
             string time = DateTime.Now.ToString("HH:mm:ss");
-            string logMessage = $"[{time}] {message}\n";
+            string logMessage = "[" + time + "] " + message + "\n";
 
             Dispatcher.Invoke(() =>
             {
@@ -528,12 +525,6 @@ namespace WpfApp1
             Dispatcher.Invoke(() =>
             {
                 SerialNoText.Text = string.IsNullOrEmpty(serialNumber) ? "未设置" : serialNumber;
-                // 如果界面有IP显示控件，也更新它
-                var ipText = this.FindName("IpText") as System.Windows.Controls.TextBlock;
-                if (ipText != null)
-                {
-                    ipText.Text = string.IsNullOrEmpty(ipAddress) ? "未设置" : ipAddress;
-                }
             });
         }
 
@@ -541,7 +532,7 @@ namespace WpfApp1
         {
             var timer = new System.Windows.Threading.DispatcherTimer();
             timer.Interval = TimeSpan.FromSeconds(1);
-            timer.Tick += (s, e) =>
+            timer.Tick += (s, ev) =>
             {
                 CurrentTimeText.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             };
