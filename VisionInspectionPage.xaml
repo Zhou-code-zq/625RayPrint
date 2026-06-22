@@ -26,15 +26,32 @@
             <Setter Property="Padding" Value="20 12"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
+                        <Border x:Name="btnBorder" 
+                                Background="{TemplateBinding Background}" 
                                 CornerRadius="8" 
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                Padding="{TemplateBinding Padding}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                BorderBrush="{TemplateBinding BorderBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"
+                                            RecognizesAccessKey="True"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -177,9 +194,9 @@
                         <StackPanel>
                             <TextBlock Text="相机控制" FontSize="14" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 15"/>
                             <Button x:Name="BtnConnect" Content="连接相机" Style="{StaticResource ActionButton}" Margin="0 0 0 10" Click="BtnConnect_Click"/>
-                            <Button x:Name="BtnStartGrab" Content="开始采集" Background="#10B981" Style="{StaticResource ActionButton}" Margin="0 0 0 10" Click="BtnStartGrab_Click"/>
-                            <Button x:Name="BtnStopGrab" Content="停止采集" Background="#F59E0B" Style="{StaticResource ActionButton}" Margin="0 0 0 10" Click="BtnStopGrab_Click"/>
-                            <Button x:Name="BtnDisconnect" Content="断开连接" Background="#6B7280" Style="{StaticResource ActionButton}" Click="BtnDisconnect_Click"/>
+                            <Button x:Name="BtnStartGrab" Content="开始采集" Background="#10B981" Style="{StaticResource ActionButton}" Margin="0 0 0 10" Click="BtnStartGrab_Click" IsEnabled="False"/>
+                            <Button x:Name="BtnStopGrab" Content="停止采集" Background="#F59E0B" Style="{StaticResource ActionButton}" Margin="0 0 0 10" Click="BtnStopGrab_Click" IsEnabled="False"/>
+                            <Button x:Name="BtnDisconnect" Content="断开连接" Background="#6B7280" Style="{StaticResource ActionButton}" Click="BtnDisconnect_Click" IsEnabled="False"/>
                         </StackPanel>
                     </Border>
 

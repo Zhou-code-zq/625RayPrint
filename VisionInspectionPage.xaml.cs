@@ -85,7 +85,9 @@ namespace WpfApp1
             _isConnected = true;
             UpdateCameraStatus(true, "相机已连接");
             AddLog($"相机连接成功 (序列号: {serialNo})", "#10B981");
-            BtnConnect.IsEnabled = true;
+            BtnConnect.IsEnabled = false;
+            BtnStartGrab.IsEnabled = true;
+            BtnDisconnect.IsEnabled = true;
         }
 
         private void BtnStartGrab_Click(object sender, RoutedEventArgs e)
@@ -140,8 +142,13 @@ namespace WpfApp1
 
             AddLog("正在断开相机连接...");
             _isConnected = false;
+            _isGrabbing = false;
             UpdateCameraStatus(false, "相机未连接");
             AddLog("相机已断开连接", "#F59E0B");
+            BtnConnect.IsEnabled = true;
+            BtnStartGrab.IsEnabled = false;
+            BtnStopGrab.IsEnabled = false;
+            BtnDisconnect.IsEnabled = false;
         }
 
         private void BtnClearLog_Click(object sender, RoutedEventArgs e)
