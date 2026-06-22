@@ -504,7 +504,12 @@ namespace WpfApp1
             Dispatcher.Invoke(() =>
             {
                 SerialNoText.Text = string.IsNullOrEmpty(serialNumber) ? "未设置" : serialNumber;
-                IpText.Text = string.IsNullOrEmpty(ipAddress) ? "未设置" : ipAddress;
+                // 如果界面有IP显示控件，也更新它
+                var ipText = this.FindName("IpText") as System.Windows.Controls.TextBlock;
+                if (ipText != null)
+                {
+                    ipText.Text = string.IsNullOrEmpty(ipAddress) ? "未设置" : ipAddress;
+                }
             });
         }
 

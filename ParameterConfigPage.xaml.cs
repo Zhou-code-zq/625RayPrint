@@ -151,7 +151,10 @@ namespace WpfApp1
             }
         }
 
-        private void LoadConfig()
+        /// <summary>
+        /// 加载配置文件
+        /// </summary>
+        public void LoadConfig()
         {
             try
             {
@@ -239,6 +242,22 @@ namespace WpfApp1
         public string GetIpAddress()
         {
             return TxtIpAddress.Text.Trim();
+        }
+
+        /// <summary>
+        /// 获取当前配置的相机序列号（兼容方法）
+        /// </summary>
+        public string GetCameraSerial()
+        {
+            return GetSerialNo();
+        }
+
+        /// <summary>
+        /// 获取当前配置的相机IP（兼容方法）
+        /// </summary>
+        public string GetCameraIP()
+        {
+            return GetIpAddress();
         }
     }
 }
