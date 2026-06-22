@@ -19,7 +19,7 @@
             <Setter Property="Margin" Value="0 0 8 0"/>
         </Style>
 
-        <!-- 按钮样式 -->
+        <!-- 操作按钮样式 -->
         <Style x:Key="ActionButton" TargetType="Button">
             <Setter Property="Background" Value="#635BFF"/>
             <Setter Property="Foreground" Value="White"/>
@@ -34,12 +34,9 @@
                         <Border x:Name="btnBorder" 
                                 Background="{TemplateBinding Background}" 
                                 CornerRadius="8" 
-                                Padding="{TemplateBinding Padding}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                BorderBrush="{TemplateBinding BorderBrush}">
+                                Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" 
-                                            VerticalAlignment="Center"
-                                            RecognizesAccessKey="True"/>
+                                            VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -55,6 +52,14 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- 文本框样式 -->
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Margin" Value="0 0 0 10"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
     </UserControl.Resources>
 
@@ -72,13 +77,12 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="📷" FontSize="24" VerticalAlignment="Center"/>
-                    <TextBlock Text=" 质检与监控 - 海康相机视觉检测" FontSize="20" FontWeight="Bold" Foreground="#12142D" VerticalAlignment="Center"/>
+                    <TextBlock Text="质检与监控 - 海康相机视觉检测" FontSize="20" FontWeight="Bold" Foreground="#12142D" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="CameraStatusText" Text="相机已连接" Foreground="#10B981" FontSize="14" VerticalAlignment="Center" Margin="0 0 20 0"/>
-                    <TextBlock x:Name="CurrentTimeText" Text="2024-01-01 00:00:00" Foreground="#666" FontSize="14" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CameraStatusText" Text="相机未连接" Foreground="#666" FontSize="14" VerticalAlignment="Center" Margin="0 0 20 0"/>
+                    <TextBlock x:Name="CurrentTimeText" Text="" Foreground="#666" FontSize="14" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -99,15 +103,12 @@
                             <TextBlock Text="相机预览" FontSize="16" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 15"/>
                             <Border Background="#1E2142" CornerRadius="8" Height="450">
                                 <Grid>
-                                    <!-- 预览画面占位 -->
-                                    <TextBlock Text="📷 相机预览区域" Foreground="#666" FontSize="18" 
+                                    <TextBlock Text="相机预览区域" Foreground="#666" FontSize="18" 
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <!-- ROI框 -->
                                     <Border BorderBrush="#10B981" BorderThickness="2" 
                                             Width="300" Height="300" 
                                             HorizontalAlignment="Center" VerticalAlignment="Center"
                                             Opacity="0.5"/>
-                                    <!-- 十字线 -->
                                     <Line X1="0" Y1="225" X2="600" Y2="225" Stroke="#10B981" StrokeThickness="1" Opacity="0.5"/>
                                     <Line X1="300" Y1="0" X2="300" Y2="450" Stroke="#10B981" StrokeThickness="1" Opacity="0.5"/>
                                 </Grid>
@@ -129,25 +130,25 @@
                                 <Border Background="#F0F4FF" CornerRadius="8" Padding="15" Margin="0 0 10 0">
                                     <StackPanel>
                                         <TextBlock Text="检测数量" Foreground="#666" FontSize="12"/>
-                                        <TextBlock Text="1,258" Foreground="#12142D" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text="0" Foreground="#12142D" FontSize="24" FontWeight="Bold"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Background="#F0FDF4" CornerRadius="8" Padding="15" Margin="0 0 10 0" Grid.Column="1">
                                     <StackPanel>
                                         <TextBlock Text="合格数量" Foreground="#666" FontSize="12"/>
-                                        <TextBlock Text="1,245" Foreground="#10B981" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text="0" Foreground="#10B981" FontSize="24" FontWeight="Bold"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Background="#FEF2F2" CornerRadius="8" Padding="15" Margin="0 0 10 0" Grid.Column="2">
                                     <StackPanel>
                                         <TextBlock Text="不合格数量" Foreground="#666" FontSize="12"/>
-                                        <TextBlock Text="13" Foreground="#EF4444" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text="0" Foreground="#EF4444" FontSize="24" FontWeight="Bold"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Background="#FFFBEB" CornerRadius="8" Padding="15" Grid.Column="3">
                                     <StackPanel>
                                         <TextBlock Text="合格率" Foreground="#666" FontSize="12"/>
-                                        <TextBlock Text="98.9%" Foreground="#F59E0B" FontSize="24" FontWeight="Bold"/>
+                                        <TextBlock Text="0%" Foreground="#F59E0B" FontSize="24" FontWeight="Bold"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -179,11 +180,11 @@
                                 <TextBlock Grid.Row="1" Text="IP:" Foreground="#666" Margin="0 0 0 8"/>
                                 <TextBlock x:Name="IpText" Grid.Row="1" Grid.Column="1" Text="待配置" Foreground="#12142D" Margin="0 0 0 8"/>
                                 <TextBlock Grid.Row="2" Text="分辨率:" Foreground="#666" Margin="0 0 0 8"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="2448 x 2048" Foreground="#12142D" Margin="0 0 0 8"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="待获取" Foreground="#12142D" Margin="0 0 0 8"/>
                                 <TextBlock Grid.Row="3" Text="状态:" Foreground="#666"/>
                                 <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
-                                    <Ellipse Width="8" Height="8" Fill="#10B981" Margin="0 0 5 0"/>
-                                    <TextBlock Text="已连接" Foreground="#10B981"/>
+                                    <Ellipse Width="8" Height="8" Fill="#EF4444" Margin="0 0 5 0"/>
+                                    <TextBlock x:Name="ConnectionStatusText" Text="未连接" Foreground="#EF4444"/>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -210,7 +211,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
-                                <Slider x:Name="ExposureSlider" Minimum="100" Maximum="5000" Value="1000" VerticalAlignment="Center"/>
+                                <Slider x:Name="ExposureSlider" Minimum="100" Maximum="5000" Value="1000" VerticalAlignment="Center" ValueChanged="ExposureSlider_ValueChanged"/>
                                 <TextBlock Grid.Column="1" x:Name="ExposureValueText" Text="1000" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
                             <TextBlock Text="增益" Foreground="#666" Margin="0 15 0 5"/>
@@ -219,7 +220,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
-                                <Slider x:Name="GainSlider" Minimum="0" Maximum="20" Value="5" VerticalAlignment="Center"/>
+                                <Slider x:Name="GainSlider" Minimum="0" Maximum="20" Value="5" VerticalAlignment="Center" ValueChanged="GainSlider_ValueChanged"/>
                                 <TextBlock Grid.Column="1" x:Name="GainValueText" Text="5.0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                             </Grid>
                         </StackPanel>
@@ -230,13 +231,13 @@
                         <StackPanel>
                             <TextBlock Text="检测参数" FontSize="14" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 15"/>
                             <TextBlock Text="ROI X" Foreground="#666" Margin="0 0 0 5"/>
-                            <TextBox x:Name="RoiXText" Text="100" Padding="8" Margin="0 0 0 10"/>
-                            <TextBlock Text="ROI Y" Foreground="#666" Margin="0 0 0 5"/>
-                            <TextBox x:Name="RoiYText" Text="100" Padding="8" Margin="0 0 0 10"/>
-                            <TextBlock Text="ROI Width" Foreground="#666" Margin="0 0 0 5"/>
-                            <TextBox x:Name="RoiWidthText" Text="500" Padding="8" Margin="0 0 0 10"/>
-                            <TextBlock Text="ROI Height" Foreground="#666" Margin="0 0 0 5"/>
-                            <TextBox x:Name="RoiHeightText" Text="500" Padding="8"/>
+                            <TextBox x:Name="RoiXText" Text="100"/>
+                            <TextBlock Text="ROI Y" Foreground="#666" Margin="0 5 0 5"/>
+                            <TextBox x:Name="RoiYText" Text="100"/>
+                            <TextBlock Text="ROI Width" Foreground="#666" Margin="0 5 0 5"/>
+                            <TextBox x:Name="RoiWidthText" Text="500"/>
+                            <TextBlock Text="ROI Height" Foreground="#666" Margin="0 5 0 5"/>
+                            <TextBox x:Name="RoiHeightText" Text="500"/>
                         </StackPanel>
                     </Border>
 
@@ -254,7 +255,7 @@
                             <Border Background="#1E2142" CornerRadius="8" Padding="10" Height="150">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel x:Name="LogPanel">
-                                        <TextBlock Text="[14:32:15] 系统就绪" Foreground="#10B981" FontSize="11"/>
+                                        <TextBlock Text="[系统就绪]" Foreground="#10B981" FontSize="11"/>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
