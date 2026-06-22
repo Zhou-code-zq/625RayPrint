@@ -11,7 +11,6 @@ namespace WpfApp1
     {
         private bool isPrinting = false;
         private bool isPaused = false;
-        private bool isMaximized = false;
         private DispatcherTimer timer;
         private int elapsedSeconds = 0;
 
@@ -20,8 +19,6 @@ namespace WpfApp1
             InitializeComponent();
             InitializeTimer();
         }
-
-        #region 窗口控制
 
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
@@ -34,13 +31,11 @@ namespace WpfApp1
             {
                 this.WindowState = WindowState.Normal;
                 BtnMaximize.Content = "[]";
-                isMaximized = false;
             }
             else
             {
                 this.WindowState = WindowState.Maximized;
                 BtnMaximize.Content = "[ ]";
-                isMaximized = true;
             }
         }
 
@@ -55,18 +50,15 @@ namespace WpfApp1
             {
                 if (this.WindowState == WindowState.Maximized)
                 {
-                    var point = e.GetPosition(this);
+                    double mouseX = e.GetPosition(this).X;
+                    double mouseY = e.GetPosition(this).Y;
                     this.WindowState = WindowState.Normal;
-                    this.Left = point.X - this.Width / 2;
-                    this.Top = point.Y - 20;
+                    this.Left = mouseX - (this.Width / 2);
+                    this.Top = mouseY - 20;
                 }
                 this.DragMove();
             }
         }
-
-        #endregion
-
-        #region 快捷操作按钮
 
         private void BtnStartPrint_Click(object sender, RoutedEventArgs e)
         {
@@ -80,7 +72,6 @@ namespace WpfApp1
             isPaused = false;
             timer.Start();
             UpdatePrintButtonState();
-
             AddLogEntry("转移打印开始执行", "#6366F1");
         }
 
@@ -95,7 +86,6 @@ namespace WpfApp1
             isPaused = true;
             timer.Stop();
             UpdatePrintButtonState();
-
             AddLogEntry("打印任务已暂停", "#F59E0B");
         }
 
@@ -105,7 +95,6 @@ namespace WpfApp1
             isPaused = false;
             timer.Stop();
             UpdatePrintButtonState();
-
             AddLogEntry("紧急停止触发", "#EF4444");
 
             MessageBox.Show(
@@ -129,10 +118,10 @@ namespace WpfApp1
 
         private void BtnCancelExit_Click(object sender, RoutedEventArgs e)
         {
-            var tabControl = this.Content as Grid;
-            if (tabControl != null)
+            Grid rootGrid = this.Content as Grid;
+            if (rootGrid != null)
             {
-                foreach (var child in tabControl.Children)
+                foreach (object child in rootGrid.Children)
                 {
                     if (child is TabControl tc)
                     {
@@ -143,15 +132,11 @@ namespace WpfApp1
             }
         }
 
-        #endregion
-
-        #region 退出系统
-
         private void BtnExit_Click(object sender, RoutedEventArgs e)
         {
             if (isPrinting)
             {
-                var result = MessageBox.Show(
+                MessageBoxResult result = MessageBox.Show(
                     "警告:打印任务正在进行中!\n\n确定要强制退出吗?",
                     "退出确认",
                     MessageBoxButton.YesNo,
@@ -165,7 +150,7 @@ namespace WpfApp1
             }
             else
             {
-                var result = MessageBox.Show(
+                MessageBoxResult result = MessageBox.Show(
                     "确定要退出控制系统吗?",
                     "退出确认",
                     MessageBoxButton.YesNo,
@@ -178,10 +163,6 @@ namespace WpfApp1
                 }
             }
         }
-
-        #endregion
-
-        #region 辅助方法
 
         private void InitializeTimer()
         {
@@ -243,14 +224,12 @@ namespace WpfApp1
 
         private void AddLogEntry(string message, string color)
         {
-            TextBlock newEntry = new TextBlock
-            {
-                Text = string.Format("[{0}] {1}", DateTime.Now.ToString("HH:mm:ss"), message),
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)),
-                FontSize = 11,
-                FontFamily = new FontFamily("Consolas"),
-                Margin = new Thickness(0, 6, 0, 0)
-            };
+            TextBlock newEntry = new TextBlock();
+            newEntry.Text = string.Format("[{0}] {1}", DateTime.Now.ToString("HH:mm:ss"), message);
+            newEntry.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            newEntry.FontSize = 11;
+            newEntry.FontFamily = new FontFamily("Consolas");
+            newEntry.Margin = new Thickness(0, 6, 0, 0);
 
             LogPanel.Children.Insert(0, newEntry);
 
@@ -260,6 +239,9 @@ namespace WpfApp1
             }
         }
 
-        #endregion
+        private void ShowExitConfirmation()
+        {
+            BtnExit_Click(this, new RoutedEventArgs());
+        }
     }
 }
