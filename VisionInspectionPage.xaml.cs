@@ -5,7 +5,10 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Threading;
 using System.Runtime.InteropServices;
-using MvCamCtrl.NET;
+
+// 使用海康SDK的命名空间（需要手动引用 MvCameraControl.dll）
+// 请在项目中添加对 MvCameraControl.dll 的引用
+// DLL文件位置: C:\Program Files (x86)\MVS\Development\Lib\Win64\MvCameraControl.dll
 
 namespace WpfApp1
 {
@@ -129,6 +132,16 @@ namespace WpfApp1
                     PreviewPlaceholder.Visibility = Visibility.Collapsed;
                 });
 
+            }
+            catch (DllNotFoundException ex)
+            {
+                Log("错误: 找不到海康SDK DLL！\n请确保已将以下文件复制到程序目录：\n- MvCameraControl.dll\n- MvGigEVision.dll\n- MvUsbVision.dll");
+                MessageBox.Show("找不到海康SDK DLL！\n\n请将以下文件复制到程序输出目录 (bin\\x64\\Debug\\)：\n\n" +
+                    "1. MvCameraControl.dll\n" +
+                    "2. MvGigEVision.dll\n" +
+                    "3. MvUsbVision.dll\n\n" +
+                    "这些文件在MVS安装目录的 Development\\Lib\\Win64 文件夹中。", 
+                    "DLL未找到", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception ex)
             {
