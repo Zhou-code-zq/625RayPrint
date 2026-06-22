@@ -1,10 +1,6 @@
 <Window x:Class="WpfApp1.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        Title="625曲面打印控制系统"
         Width="1400" Height="900"
         WindowStartupLocation="CenterScreen"
         MinWidth="1200" MinHeight="700"
@@ -12,9 +8,7 @@
         WindowStyle="None"
         AllowsTransparency="True"
         ResizeMode="CanResizeWithGrip"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown"
-        KeyDown="Window_KeyDown"
-        Loaded="Window_Loaded">
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
     <Window.Resources>
         <!-- 颜色定义 -->
@@ -31,11 +25,6 @@
         <SolidColorBrush x:Key="BorderBrush" Color="#E5E7EB"/>
 
         <!-- 渐变定义 -->
-        <LinearGradientBrush x:Key="TitleBarGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#6366F1" Offset="0"/>
-            <GradientStop Color="#8B5CF6" Offset="1"/>
-        </LinearGradientBrush>
-
         <LinearGradientBrush x:Key="ProgressGradient" StartPoint="0,0" EndPoint="1,0">
             <GradientStop Color="#6366F1" Offset="0"/>
             <GradientStop Color="#A855F7" Offset="1"/>
@@ -116,18 +105,9 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
-                                <Setter TargetName="border" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <ScaleTransform ScaleX="1.02" ScaleY="1.02"/>
-                                    </Setter.Value>
-                                </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="RenderTransform">
-                                    <Setter.Value>
-                                        <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="border" Property="Background" Value="#D1D5DB"/>
@@ -238,7 +218,7 @@
             <Setter Property="Effect" Value="{StaticResource CardShadow}"/>
         </Style>
 
-        <!-- 状态指示灯动画 -->
+        <!-- 状态指示灯 -->
         <Style x:Key="StatusLight" TargetType="Ellipse">
             <Setter Property="Width" Value="10"/>
             <Setter Property="Height" Value="10"/>
@@ -313,15 +293,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-        <!-- 工具提示样式 -->
-        <Style TargetType="ToolTip">
-            <Setter Property="Background" Value="#1F2937"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="10 6"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
     </Window.Resources>
 
     <!-- 窗口圆角容器 -->
@@ -348,9 +319,9 @@
 
                     <!-- 窗口控制按钮 -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="BtnMinimize" Style="{StaticResource TitleBarButton}" Content="─" Click="BtnMinimize_Click" ToolTip="最小化 (Alt+N)"/>
-                        <Button x:Name="BtnMaximize" Style="{StaticResource TitleBarButton}" Content="☐" Click="BtnMaximize_Click" ToolTip="最大化 (Alt+M)"/>
-                        <Button x:Name="BtnClose" Style="{StaticResource CloseButton}" Content="✕" Click="BtnClose_Click" ToolTip="关闭 (Alt+F4)"/>
+                        <Button x:Name="BtnMinimize" Style="{StaticResource TitleBarButton}" Content="─" Click="BtnMinimize_Click"/>
+                        <Button x:Name="BtnMaximize" Style="{StaticResource TitleBarButton}" Content="☐" Click="BtnMaximize_Click"/>
+                        <Button x:Name="BtnClose" Style="{StaticResource CloseButton}" Content="X" Click="BtnClose_Click"/>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -361,7 +332,7 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📊" Width="24" FontSize="16"/>
+                            <TextBlock Text="1" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="流程总览" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -393,7 +364,7 @@
                                         <TextBlock Text="当前工序" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
                                         <TextBlock x:Name="TxtCurrentProcess" Text="转移打印" Foreground="{StaticResource TextPrimaryBrush}" FontSize="20" FontWeight="Bold" Margin="0 4 0 0"/>
                                         <Border Background="#DCFCE7" CornerRadius="4" Padding="6 2" Margin="0 8 0 0" HorizontalAlignment="Left">
-                                            <TextBlock Text="● 运行中" Foreground="#16A34A" FontSize="11"/>
+                                            <TextBlock Text="运行中" Foreground="#16A34A" FontSize="11"/>
                                         </Border>
                                     </StackPanel>
 
@@ -448,7 +419,7 @@
                                                 <StackPanel Orientation="Horizontal">
                                                     <!-- 步骤1: Z轴粗定位 -->
                                                     <StackPanel Width="140" Margin="0 0 20 0">
-                                                        <Border x:Name="Step1Border" Background="#6366F1" CornerRadius="8" Padding="12" MinHeight="60">
+                                                        <Border Background="#6366F1" CornerRadius="8" Padding="12" MinHeight="60">
                                                             <TextBlock Text="Z轴粗定位" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" FontWeight="Medium"/>
                                                         </Border>
                                                         <TextBlock Text="1" Foreground="#6366F1" FontWeight="Bold" HorizontalAlignment="Center" Margin="0 8 0 0"/>
@@ -469,7 +440,7 @@
                                                     <!-- 步骤3: 间隙控制 -->
                                                     <StackPanel Width="140" Margin="0 0 20 0">
                                                         <Border Background="#F59E0B" CornerRadius="8" Padding="12" MinHeight="60">
-                                                            <TextBlock Text="间隙控制 ≤10μm" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" FontWeight="Medium"/>
+                                                            <TextBlock Text="间隙控制小于等于10μm" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" FontWeight="Medium"/>
                                                         </Border>
                                                         <TextBlock Text="3" Foreground="#F59E0B" FontWeight="Bold" HorizontalAlignment="Center" Margin="0 8 0 0"/>
                                                     </StackPanel>
@@ -548,8 +519,8 @@
                                                     <TextBlock Text="打印间隙" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
                                                     <Ellipse Width="8" Height="8" Fill="#10B981" HorizontalAlignment="Right"/>
                                                 </Grid>
-                                                <TextBlock x:Name="TxtGap" Text="8.2 μm" Foreground="#6366F1" FontSize="22" FontWeight="Bold" Margin="0 8 0 4"/>
-                                                <TextBlock Text="目标: ≤10 μm" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                <TextBlock x:Name="TxtGap" Text="8.2 um" Foreground="#6366F1" FontSize="22" FontWeight="Bold" Margin="0 8 0 4"/>
+                                                <TextBlock Text="目标小于等于10 um" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
                                             </StackPanel>
                                         </Border>
 
@@ -561,7 +532,7 @@
                                                     <Ellipse Width="8" Height="8" Fill="#10B981" HorizontalAlignment="Right"/>
                                                 </Grid>
                                                 <TextBlock x:Name="TxtPressure" Text="-85 kPa" Foreground="#10B981" FontSize="22" FontWeight="Bold" Margin="0 8 0 4"/>
-                                                <TextBlock Text="正常: -80~-90 kPa" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                <TextBlock Text="正常-80~-90 kPa" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
                                             </StackPanel>
                                         </Border>
 
@@ -573,7 +544,7 @@
                                                     <Ellipse Width="8" Height="8" Fill="#F59E0B" HorizontalAlignment="Right"/>
                                                 </Grid>
                                                 <TextBlock x:Name="TxtLaserPower" Text="75%" Foreground="#F59E0B" FontSize="22" FontWeight="Bold" Margin="0 8 0 4"/>
-                                                <TextBlock Text="当前: 中功率" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                                                <TextBlock Text="当前中功率" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
                                             </StackPanel>
                                         </Border>
 
@@ -690,7 +661,7 @@
                                         <Border Background="#1E293B" CornerRadius="8" Padding="12" MaxHeight="200">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                                 <StackPanel x:Name="LogPanel">
-                                                    <TextBlock Text="[14:32:15] 间隙检测通过，当前8.2μm" Foreground="#10B981" FontSize="11" FontFamily="Consolas"/>
+                                                    <TextBlock Text="[14:32:15] 间隙检测通过，当前8.2um" Foreground="#10B981" FontSize="11" FontFamily="Consolas"/>
                                                     <TextBlock Text="[14:32:10] 视觉定位完成，偏差补偿OK" Foreground="#10B981" FontSize="11" FontFamily="Consolas" Margin="0 6 0 0"/>
                                                     <TextBlock Text="[14:32:05] 振镜补偿参数加载完成" Foreground="#F59E0B" FontSize="11" FontFamily="Consolas" Margin="0 6 0 0"/>
                                                     <TextBlock Text="[14:31:58] 转移打印开始执行" Foreground="#6366F1" FontSize="11" FontFamily="Consolas" Margin="0 6 0 0"/>
@@ -707,26 +678,14 @@
                                     <StackPanel>
                                         <TextBlock Text="快捷操作" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0 0 0 16"/>
 
-                                        <Button x:Name="BtnStartPrint" Style="{StaticResource SuccessButton}" Content="▶ 开始打印批次" Margin="0 0 0 10" 
-                                                Click="BtnStartPrint_Click" ToolTip="快捷键: Ctrl+P"/>
-                                        <Button x:Name="BtnPausePrint" Style="{StaticResource WarningButton}" Content="⏸ 暂停打印" Margin="0 0 0 10" 
-                                                Click="BtnPausePrint_Click" ToolTip="快捷键: Space"/>
-                                        <Button x:Name="BtnEmergencyStop" Style="{StaticResource DangerButton}" Content="⏹ 紧急停止" Margin="0 0 0 10" 
-                                                Click="BtnEmergencyStop_Click" ToolTip="快捷键: Esc"/>
-                                        <Button x:Name="BtnDebug" Style="{StaticResource ModernButton}" Content="⚙ 停机调试参数" 
-                                                Click="BtnDebug_Click" ToolTip="快捷键: Ctrl+D"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- 快捷键提示 -->
-                                <Border Style="{StaticResource ControlCard}" Background="#F9FAFB">
-                                    <StackPanel>
-                                        <TextBlock Text="快捷键" FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0 0 0 8"/>
-                                        <TextBlock Text="Ctrl+P    开始打印" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Consolas"/>
-                                        <TextBlock Text="Space      暂停/继续" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Consolas" Margin="0 4 0 0"/>
-                                        <TextBlock Text="Esc        紧急停止" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Consolas" Margin="0 4 0 0"/>
-                                        <TextBlock Text="Ctrl+D     调试参数" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Consolas" Margin="0 4 0 0"/>
-                                        <TextBlock Text="F11        全屏切换" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontFamily="Consolas" Margin="0 4 0 0"/>
+                                        <Button x:Name="BtnStartPrint" Style="{StaticResource SuccessButton}" Content="开始打印批次" Margin="0 0 0 10" 
+                                                Click="BtnStartPrint_Click"/>
+                                        <Button x:Name="BtnPausePrint" Style="{StaticResource WarningButton}" Content="暂停打印" Margin="0 0 0 10" 
+                                                Click="BtnPausePrint_Click"/>
+                                        <Button x:Name="BtnEmergencyStop" Style="{StaticResource DangerButton}" Content="紧急停止" Margin="0 0 0 10" 
+                                                Click="BtnEmergencyStop_Click"/>
+                                        <Button x:Name="BtnDebug" Style="{StaticResource ModernButton}" Content="停机调试参数" 
+                                                Click="BtnDebug_Click"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -738,7 +697,7 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎯" Width="24" FontSize="16"/>
+                            <TextBlock Text="2" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="运动控制" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -798,7 +757,7 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🖨️" Width="24" FontSize="16"/>
+                            <TextBlock Text="3" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="打印控制" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -816,7 +775,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="激光功率" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="当前档位: 中功率" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0 4 0 0"/>
+                                        <TextBlock Text="当前档位中功率" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0 4 0 0"/>
                                     </StackPanel>
                                     <Slider x:Name="SliderLaserPower" Grid.Column="1" Minimum="0" Maximum="100" Value="75" 
                                             VerticalAlignment="Center" Margin="20 0"/>
@@ -846,9 +805,9 @@
 
                             <!-- 操作按钮 -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 20 0 0">
-                                <Button Style="{StaticResource SuccessButton}" Content="▶ 开始打印" Margin="0 0 12 0"/>
-                                <Button Style="{StaticResource WarningButton}" Content="⏸ 暂停" Margin="0 0 12 0"/>
-                                <Button Style="{StaticResource DangerButton}" Content="⏹ 停止"/>
+                                <Button Style="{StaticResource SuccessButton}" Content="开始打印" Margin="0 0 12 0"/>
+                                <Button Style="{StaticResource WarningButton}" Content="暂停" Margin="0 0 12 0"/>
+                                <Button Style="{StaticResource DangerButton}" Content="停止"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -858,7 +817,7 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔧" Width="24" FontSize="16"/>
+                            <TextBlock Text="4" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="平台与工艺" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -872,16 +831,16 @@
                                     <TextBlock Text="吸附平台参数" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0 0 0 12"/>
                                     <UniformGrid Columns="3">
                                         <StackPanel Margin="0 0 16 0">
-                                            <TextBlock Text="目标气压 (kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                                            <TextBox Text="-85" Padding="8" Margin="0 4 0 0"/>
+                                            <TextBlock Text="目标气压(kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBox x:Name="TxtTargetPressure" Text="-85" Padding="8" Margin="0 4 0 0"/>
                                         </StackPanel>
                                         <StackPanel Margin="0 0 16 0">
-                                            <TextBlock Text="最小气压 (kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                                            <TextBox Text="-80" Padding="8" Margin="0 4 0 0"/>
+                                            <TextBlock Text="最小气压(kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBox x:Name="TxtMinPressure" Text="-80" Padding="8" Margin="0 4 0 0"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="最大气压 (kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                                            <TextBox Text="-90" Padding="8" Margin="0 4 0 0"/>
+                                            <TextBlock Text="最大气压(kPa)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBox x:Name="TxtMaxPressure" Text="-90" Padding="8" Margin="0 4 0 0"/>
                                         </StackPanel>
                                     </UniformGrid>
                                 </StackPanel>
@@ -893,18 +852,18 @@
                                     <TextBlock Text="工艺参数配置" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0 0 0 12"/>
                                     <UniformGrid Columns="2">
                                         <StackPanel Margin="0 0 16 0">
-                                            <TextBlock Text="目标间隙 (μm)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                                            <TextBox Text="10" Padding="8" Margin="0 4 0 0"/>
+                                            <TextBlock Text="目标间隙(um)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBox x:Name="TxtTargetGap" Text="10" Padding="8" Margin="0 4 0 0"/>
                                         </StackPanel>
                                         <StackPanel>
-                                            <TextBlock Text="允许偏差 (μm)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
-                                            <TextBox Text="2" Padding="8" Margin="0 4 0 0"/>
+                                            <TextBlock Text="允许偏差(um)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                            <TextBox x:Name="TxtGapDeviation" Text="2" Padding="8" Margin="0 4 0 0"/>
                                         </StackPanel>
                                     </UniformGrid>
                                 </StackPanel>
                             </Border>
 
-                            <Button Style="{StaticResource ModernButton}" Content="💾 保存参数" HorizontalAlignment="Center" Margin="0 20 0 0"/>
+                            <Button Style="{StaticResource ModernButton}" Content="保存参数" HorizontalAlignment="Center" Margin="0 20 0 0"/>
                         </StackPanel>
                     </Border>
                 </TabItem>
@@ -913,7 +872,7 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="✅" Width="24" FontSize="16"/>
+                            <TextBlock Text="5" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="质检与监控" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
@@ -952,8 +911,8 @@
                             <!-- 图表占位 -->
                             <Border Background="#F9FAFB" CornerRadius="12" Padding="20" Height="250">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="📊 质量趋势图表" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
-                                    <TextBlock Text="(图表组件待集成)" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0 8 0 0"/>
+                                    <TextBlock Text="质量趋势图表" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="图表组件待集成" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0 8 0 0" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -964,38 +923,24 @@
                 <TabItem Style="{StaticResource TabItemStyle}">
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🚪" Width="24" FontSize="16"/>
+                            <TextBlock Text="6" Width="24" FontSize="14" FontWeight="Bold"/>
                             <TextBlock Text="退出系统" Margin="8 0 0 0"/>
                         </StackPanel>
                     </TabItem.Header>
                     <Border Background="White" CornerRadius="16" Margin="24" Padding="24" Effect="{StaticResource CardShadow}">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="⚠️" FontSize="48" HorizontalAlignment="Center"/>
                             <TextBlock Text="确定要退出控制系统吗？" FontSize="18" FontWeight="Bold" 
                                        Foreground="{StaticResource TextPrimaryBrush}" Margin="0 16 0 8" HorizontalAlignment="Center"/>
                             <TextBlock Text="请确保所有打印任务已完成保存" Foreground="{StaticResource TextSecondaryBrush}" 
                                        HorizontalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 24 0 0">
-                                <Button Style="{StaticResource DangerButton}" Content="确认退出" Margin="0 0 12 0" Click="BtnExit_MouseLeftButtonDown"/>
+                                <Button Style="{StaticResource DangerButton}" Content="确认退出" Margin="0 0 12 0" Click="BtnExit_Click"/>
                                 <Button Style="{StaticResource SecondaryButton}" Content="取消" Click="BtnCancelExit_Click"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
                 </TabItem>
             </TabControl>
-
-            <!-- 右键菜单 -->
-            <Grid.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="📋 复制当前数据" Click="MenuCopy_Click"/>
-                    <MenuItem Header="💾 导出日志" Click="MenuExportLog_Click"/>
-                    <Separator/>
-                    <MenuItem Header="⬜ 最小化" Click="BtnMinimize_Click"/>
-                    <MenuItem Header="⬜ 最大化" Click="BtnMaximize_Click"/>
-                    <Separator/>
-                    <MenuItem Header="🚪 退出系统" Click="BtnExit_MouseLeftButtonDown"/>
-                </ContextMenu>
-            </Grid.ContextMenu>
         </Grid>
     </Border>
 </Window>
