@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Shapes;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.IO;
 using System.Configuration;
 
@@ -14,12 +15,106 @@ namespace WpfApp1
         private bool _isGrabbing = false;
         private System.Windows.Threading.DispatcherTimer _timer;
         private Random _random = new Random();
+        private WriteableBitmap _cameraBitmap;
+        private int _frameCount = 0;
 
         public VisionInspectionPage()
         {
             InitializeComponent();
             InitializeTimer();
+            InitializeCameraImage();
             LoadCameraConfig();
+        }
+
+        private void InitializeCameraImage()
+        {
+            try
+            {
+                // 初始化800x450的图像（深蓝色背景）
+                int width = 800;
+                int height = 450;
+                _cameraBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+                
+                // 填充深蓝色背景
+                byte[] pixels = new byte[width * height * 4];
+                for (int i = 0; i < pixels.Length; i += 4)
+                {
+                    pixels[i] = 66;     // B
+                    pixels[i + 1] = 33; // G
+                    pixels[i + 2] = 30; // R
+                    pixels[i + 3] = 255; // A
+                }
+                _cameraBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, width * 4, 0);
+                CameraImage.Source = _cameraBitmap;
+            }
+            catch (Exception ex)
+            {
+                AddLog("初始化图像失败: " + ex.Message);
+            }
+        }
+
+        private void DrawSimulatedImage()
+        {
+            try
+            {
+                if (_cameraBitmap == null) return;
+
+                int width = _cameraBitmap.PixelWidth;
+                int height = _cameraBitmap.PixelHeight;
+                byte[] pixels = new byte[width * height * 4];
+
+                // 生成模拟图像内容
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        int index = (y * width + x) * 4;
+
+                        // 深蓝色背景
+                        byte b = 66;
+                        byte g = 33;
+                        byte r = 30;
+
+                        // 添加一些噪声和渐变效果
+                        if (x > 100 && x < 700 && y > 50 && y < 400)
+                        {
+                            // ROI区域内 - 显示一些模拟内容
+                            int noise = _random.Next(-20, 20);
+                            r = (byte)Math.Max(0, Math.Min(255, 100 + noise));
+                            g = (byte)Math.Max(0, Math.Min(255, 80 + noise));
+                            b = (byte)Math.Max(0, Math.Min(255, 200 + noise));
+
+                            // 添加一些条纹效果模拟物体
+                            if ((y % 40) < 20)
+                            {
+                                r = (byte)Math.Max(0, Math.Min(255, r + 30));
+                                g = (byte)Math.Max(0, Math.Min(255, g + 30));
+                            }
+
+                            // 边缘高亮
+                            if (x == 100 || x == 699 || y == 50 || y == 399)
+                            {
+                                r = 16;
+                                g = 185;
+                                b = 129;
+                            }
+                        }
+
+                        pixels[index] = b;
+                        pixels[index + 1] = g;
+                        pixels[index + 2] = r;
+                        pixels[index + 3] = 255;
+                    }
+                }
+
+                // 更新图像
+                _cameraBitmap.WritePixels(new Int32Rect(0, 0, width, height), pixels, width * 4, 0);
+                _frameCount++;
+            }
+            catch (Exception ex)
+            {
+                AddLog("绘制图像失败: " + ex.Message);
+            }
         }
 
         private void InitializeTimer()
@@ -33,6 +128,12 @@ namespace WpfApp1
         private void Timer_Tick(object sender, EventArgs e)
         {
             CurrentTimeText.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            
+            // 如果正在采集，更新图像
+            if (_isGrabbing)
+            {
+                DrawSimulatedImage();
+            }
         }
 
         private void LoadCameraConfig()
@@ -131,7 +232,15 @@ namespace WpfApp1
 
             AddLog("开始采集图像...");
             _isGrabbing = true;
+            _frameCount = 0;
             UpdateCameraStatus(true, "采集中");
+
+            // 隐藏占位文字
+            PreviewPlaceholder.Visibility = Visibility.Collapsed;
+
+            // 启动图像更新定时器
+            _timer.Interval = TimeSpan.FromMilliseconds(100);
+            _timer.Start();
 
             BtnStartGrab.IsEnabled = false;
             BtnStopGrab.IsEnabled = true;
@@ -150,6 +259,9 @@ namespace WpfApp1
             AddLog("停止采集...");
             _isGrabbing = false;
             UpdateCameraStatus(true, "相机已连接");
+
+            // 停止定时器
+            _timer.Stop();
 
             BtnStartGrab.IsEnabled = true;
             BtnStopGrab.IsEnabled = false;
@@ -177,6 +289,10 @@ namespace WpfApp1
             _isGrabbing = false;
             UpdateCameraStatus(false, "相机未连接");
             AddLog("相机已断开连接", "#F59E0B");
+
+            // 显示占位文字
+            PreviewPlaceholder.Visibility = Visibility.Visible;
+            PreviewPlaceholder.Text = "相机已断开连接";
 
             BtnConnect.IsEnabled = true;
             BtnStartGrab.IsEnabled = false;
