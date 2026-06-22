@@ -4,14 +4,16 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Threading;
-using MVS;
+using System.Runtime.InteropServices;
+using MvCamCtrl.NET;
 
 namespace WpfApp1
 {
     public partial class VisionInspectionPage : Page
     {
         // 海康SDK相机对象
-        private Camera _camera = null;
+        private MvCamera _camera = new MvCamera();
+        private bool _isConnected = false;
         private bool _isGrabbing = false;
         private Thread _grabThread = null;
         private ManualResetEvent _stopEvent = new ManualResetEvent(false);
@@ -29,23 +31,30 @@ namespace WpfApp1
 
         private void VisionInspectionPage_Loaded(object sender, RoutedEventArgs e)
         {
-            // 从配置页面获取相机信息
-            var configPage = new ParameterConfigPage();
-            configPage.LoadConfig();
-            
-            _cameraSerial = configPage.GetCameraSerial();
-            _cameraIP = configPage.GetCameraIP();
-            
-            if (!string.IsNullOrEmpty(_cameraSerial))
+            try
             {
-                SerialNoText.Text = "序列号: " + _cameraSerial;
+                // 从配置页面获取相机信息
+                var configPage = new ParameterConfigPage();
+                configPage.LoadConfig();
+                
+                _cameraSerial = configPage.GetCameraSerial();
+                _cameraIP = configPage.GetCameraIP();
+                
+                if (!string.IsNullOrEmpty(_cameraSerial))
+                {
+                    SerialNoText.Text = "序列号: " + _cameraSerial;
+                }
+                else if (!string.IsNullOrEmpty(_cameraIP))
+                {
+                    SerialNoText.Text = "IP地址: " + _cameraIP;
+                }
+                
+                Log("页面加载完成，等待连接相机...");
             }
-            else if (!string.IsNullOrEmpty(_cameraIP))
+            catch (Exception ex)
             {
-                SerialNoText.Text = "IP地址: " + _cameraIP;
+                Log("加载配置异常: " + ex.Message);
             }
-            
-            Log("页面加载完成，等待连接相机...");
         }
 
         // ========== 相机操作方法 ==========
@@ -61,10 +70,10 @@ namespace WpfApp1
             {
                 Log("正在枚举设备...");
                 
-                // 枚举设备
-                DeviceList deviceList = Camera.EnumerateDevices();
+                // 枚举设备 (GIGE和USB接口)
+                int nRet = MvCamera.MV_CC_EnumDevices_NET(MvCamera.MV_GIGE_DEVICE | MvCamera.MV_USB_DEVICE, out MV_CC_DEVICE_INFO_LIST deviceList);
                 
-                if (deviceList.Count == 0)
+                if (nRet != 0 || deviceList.nDeviceNum == 0)
                 {
                     Log("错误: 未找到相机设备，请检查相机连接");
                     MessageBox.Show("未找到相机设备，请检查相机连接！", "连接失败", 
@@ -72,13 +81,14 @@ namespace WpfApp1
                     return;
                 }
 
-                Log("找到 " + deviceList.Count + " 个设备");
+                Log("找到 " + deviceList.nDeviceNum + " 个设备");
 
-                // 获取第一个设备
-                DeviceInfo deviceInfo = deviceList[0];
+                // 获取第一个设备的信息
+                IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, 0);
+                MV_CC_DEVICE_INFO deviceInfo = (MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MV_CC_DEVICE_INFO));
                 
                 // 读取序列号
-                string serialNumber = deviceInfo.SerialNumber;
+                string serialNumber = System.Text.Encoding.ASCII.GetString(deviceInfo.nSerialNum).Trim('\0');
                 Log("设备序列号: " + serialNumber);
 
                 Dispatcher.Invoke(() =>
@@ -88,10 +98,24 @@ namespace WpfApp1
                     CameraStatusText.Text = "正在连接...";
                 });
 
-                // 创建相机对象并连接
-                _camera = new Camera(deviceInfo);
-                _camera.Open();
-                
+                // 创建设备句柄
+                nRet = _camera.MV_CC_CreateHandle_NET(pDeviceInfo);
+                if (nRet != 0)
+                {
+                    Log("错误: 创建设备句柄失败，错误码: 0x" + nRet.ToString("X8"));
+                    return;
+                }
+
+                // 打开设备
+                nRet = _camera.MV_CC_OpenDevice_NET(MvCamera.MV_ACCESS_Mode.MV_ACCESS_Exclusive, 0);
+                if (nRet != 0)
+                {
+                    Log("错误: 打开设备失败，错误码: 0x" + nRet.ToString("X8"));
+                    _camera.MV_CC_DestroyHandle_NET();
+                    return;
+                }
+
+                _isConnected = true;
                 Log("相机连接成功！");
 
                 Dispatcher.Invoke(() =>
@@ -109,7 +133,7 @@ namespace WpfApp1
             catch (Exception ex)
             {
                 Log("连接异常: " + ex.Message);
-                MessageBox.Show("连接异常: " + ex.Message + "\n\n请确保已安装海康机器视觉SDK (MVS)\n下载地址: https://www.hikvision.com/cn/support/tools/hikvision-tools/hikvision-mvs/", 
+                MessageBox.Show("连接异常: " + ex.Message + "\n\n请确保：\n1. 已安装海康机器视觉SDK (MVS)\n2. 项目平台目标设置为 x64", 
                     "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -121,7 +145,7 @@ namespace WpfApp1
 
         private void StartGrabbing()
         {
-            if (_camera == null || !_camera.IsOpen)
+            if (!_isConnected)
             {
                 Log("错误: 相机未连接");
                 return;
@@ -131,8 +155,16 @@ namespace WpfApp1
             {
                 Log("正在开始采集...");
 
+                // 设置采集模式为连续采集
+                _camera.MV_CC_SetEnumValue_NET("AcquisitionMode", (uint)MvCamera.MV_CAM_ACQUISITION_MODE.MV_ACQ_MODE_CONTINUOUS);
+
                 // 开始采集
-                _camera.StartGrabbing();
+                int nRet = _camera.MV_CC_StartGrabbing_NET();
+                if (nRet != 0)
+                {
+                    Log("错误: 开始采集失败，错误码: 0x" + nRet.ToString("X8"));
+                    return;
+                }
 
                 _isGrabbing = true;
                 _stopEvent.Reset();
@@ -160,64 +192,86 @@ namespace WpfApp1
 
         private void GrabThread()
         {
+            MV_FRAME_OUT frameOut = new MV_FRAME_OUT();
+            IntPtr pFrameInfo = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MV_FRAME_OUT)));
+            
             while (_isGrabbing && !_stopEvent.WaitOne(0))
             {
                 try
                 {
                     // 获取图像
-                    IGrabResult grabResult = _camera.Grab(1000);
+                    int nRet = _camera.MV_CC_GetImageBuffer_NET(pFrameInfo, 1000);
                     
-                    if (grabResult != null && grabResult.Image != null)
+                    if (nRet == 0 && pFrameInfo != IntPtr.Zero)
                     {
-                        // 转换为WPF可用的图像
-                        BitmapSource bitmapSource = ConvertToBitmapSource(grabResult);
+                        frameOut = (MV_FRAME_OUT)Marshal.PtrToStructure(pFrameInfo, typeof(MV_FRAME_OUT));
+                        
+                        // 转换为BitmapSource
+                        BitmapSource bitmapSource = ConvertToBitmapSource(frameOut);
                         
                         // 更新UI
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             CameraImage.Source = bitmapSource;
-                        });
+                        }));
+                        
+                        // 释放图像缓存
+                        _camera.MV_CC_FreeImageBuffer_NET(pFrameInfo);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // 忽略采集过程中的异常
                 }
             }
+            
+            Marshal.FreeHGlobal(pFrameInfo);
         }
 
-        private BitmapSource ConvertToBitmapSource(IGrabResult grabResult)
+        private BitmapSource ConvertToBitmapSource(MV_FRAME_OUT frameOut)
         {
-            // 根据图像格式转换
-            if (grabResult.Image.PixelFormat == PixelFormat.Mono8)
+            try
             {
-                // 灰度图像
-                var bitmap = new WriteableBitmap(
-                    (int)grabResult.Image.Width,
-                    (int)grabResult.Image.Height,
-                    96, 96,
-                    PixelFormats.Gray8,
-                    null);
+                int width = (int)frameOut.nWidth;
+                int height = (int)frameOut.nHeight;
+                IntPtr pData = frameOut.pBufAddr;
                 
-                bitmap.WritePixels(new Int32Rect(0, 0, 
-                    (int)grabResult.Image.Width, 
-                    (int)grabResult.Image.Height),
-                    grabResult.Image.Buffer,
-                    (int)grabResult.Image.Stride,
-                    0);
-                
-                return bitmap;
+                if (pData == IntPtr.Zero || width <= 0 || height <= 0)
+                {
+                    return null;
+                }
+
+                // 判断像素格式
+                if (frameOut.enPixelType == MvCamera.PixelType_Gvsp_Mono8)
+                {
+                    // 灰度图像
+                    var bitmap = BitmapSource.Create(width, height, 96, 96, 
+                        PixelFormats.Gray8, null, pData, width * height, width);
+                    bitmap.Freeze();
+                    return bitmap;
+                }
+                else
+                {
+                    // 彩色图像 (Mono8转Bgr24)
+                    int bytesPerPixel = 3;
+                    byte[] rgbData = new byte[width * height * bytesPerPixel];
+                    
+                    for (int i = 0; i < width * height; i++)
+                    {
+                        rgbData[i * bytesPerPixel] = Marshal.ReadByte(pData, i);     // B
+                        rgbData[i * bytesPerPixel + 1] = Marshal.ReadByte(pData, i); // G
+                        rgbData[i * bytesPerPixel + 2] = Marshal.ReadByte(pData, i); // R
+                    }
+                    
+                    var bitmap = BitmapSource.Create(width, height, 96, 96, 
+                        PixelFormats.Bgr24, null, rgbData, width * bytesPerPixel);
+                    bitmap.Freeze();
+                    return bitmap;
+                }
             }
-            else
+            catch
             {
-                // 彩色图像 (转换为首选项格式)
-                var bitmap = new FormatConvertedBitmap();
-                bitmap.BeginInit();
-                bitmap.Source = grabResult.Image;
-                bitmap.DestinationFormat = PixelFormats.Bgr24;
-                bitmap.EndInit();
-                bitmap.Freeze();
-                return bitmap;
+                return null;
             }
         }
 
@@ -237,10 +291,7 @@ namespace WpfApp1
                 _isGrabbing = false;
                 _stopEvent.Set();
 
-                if (_camera != null)
-                {
-                    _camera.StopGrabbing();
-                }
+                _camera.MV_CC_StopGrabbing_NET();
 
                 if (_grabThread != null && _grabThread.IsAlive)
                 {
@@ -280,12 +331,12 @@ namespace WpfApp1
                     StopGrabbing();
                 }
 
-                // 关闭相机
-                if (_camera != null && _camera.IsOpen)
+                // 关闭设备
+                if (_isConnected)
                 {
-                    _camera.Close();
-                    _camera.Dispose();
-                    _camera = null;
+                    _camera.MV_CC_CloseDevice_NET();
+                    _camera.MV_CC_DestroyHandle_NET();
+                    _isConnected = false;
                 }
 
                 Log("相机已断开连接");
@@ -318,12 +369,12 @@ namespace WpfApp1
             double value = ExposureSlider.Value;
             ExposureValueText.Text = value.ToString("F1") + " ms";
             
-            // 设置相机曝光时间
-            if (_camera != null && _camera.IsOpen)
+            // 设置相机曝光时间 (微秒)
+            if (_isConnected)
             {
                 try
                 {
-                    _camera.ExposureTime.SetValue(value * 1000); // 转换为微秒
+                    _camera.MV_CC_SetFloatValue_NET("ExposureTime", (float)(value * 1000));
                 }
                 catch { }
             }
@@ -337,11 +388,11 @@ namespace WpfApp1
             GainValueText.Text = value.ToString("F1") + " dB";
             
             // 设置相机增益
-            if (_camera != null && _camera.IsOpen)
+            if (_isConnected)
             {
                 try
                 {
-                    _camera.Gain.SetValue(value);
+                    _camera.MV_CC_SetFloatValue_NET("Gain", (float)value);
                 }
                 catch { }
             }
@@ -360,7 +411,7 @@ namespace WpfApp1
                 string time = DateTime.Now.ToString("HH:mm:ss");
                 string logEntry = "[" + time + "] " + message + "\n";
                 
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
                     if (LogText.Text.Length > 10000)
                     {
@@ -368,7 +419,7 @@ namespace WpfApp1
                     }
                     LogText.Text += logEntry;
                     LogText.ScrollToEnd();
-                });
+                }));
             }
             catch { }
         }
@@ -382,10 +433,10 @@ namespace WpfApp1
                     try
                     {
                         Thread.Sleep(1000);
-                        Dispatcher.Invoke(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             CurrentTimeText.Text = "当前时间: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                        });
+                        }));
                     }
                     catch
                     {
