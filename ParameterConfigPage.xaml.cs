@@ -82,14 +82,20 @@ namespace WpfApp1
                 TestResultIcon.Text = "✓";
                 TestResultIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
                 TestResultText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
-                (TestResultPanel.Child as Border).Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F0FDF4"));
+                if (TestResultPanel.Children.Count > 0 && TestResultPanel.Children[0] is Border border)
+                {
+                    border.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F0FDF4"));
+                }
             }
             else
             {
                 TestResultIcon.Text = "✗";
                 TestResultIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
                 TestResultText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
-                (TestResultPanel.Child as Border).Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FEF2F2"));
+                if (TestResultPanel.Children.Count > 0 && TestResultPanel.Children[0] is Border border)
+                {
+                    border.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FEF2F2"));
+                }
             }
         }
 
