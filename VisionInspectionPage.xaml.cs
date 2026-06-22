@@ -493,6 +493,21 @@ namespace WpfApp1
             });
         }
 
+        /// <summary>
+        /// 设置相机信息（由参数配置页面调用）
+        /// </summary>
+        public void SetCameraInfo(string serialNumber, string ipAddress)
+        {
+            _cameraSerial = serialNumber;
+            _cameraIP = ipAddress;
+            
+            Dispatcher.Invoke(() =>
+            {
+                SerialNoText.Text = string.IsNullOrEmpty(serialNumber) ? "未设置" : serialNumber;
+                IpText.Text = string.IsNullOrEmpty(ipAddress) ? "未设置" : ipAddress;
+            });
+        }
+
         private void UpdateTime()
         {
             var timer = new System.Windows.Threading.DispatcherTimer();
