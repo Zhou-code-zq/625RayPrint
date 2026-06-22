@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -22,40 +21,10 @@ namespace WpfApp1
         private string _cameraSerial = "";
         private string _cameraIP = "";
 
-        // SDK DLL路径
-        private static readonly string SDK_DLL_PATH = GetSdkDllPath();
-
-        private static string GetSdkDllPath()
-        {
-            // 尝试多个可能的SDK安装路径
-            string[] possiblePaths = new string[]
-            {
-                @"C:\Program Files (x86)\MVS\Development\Lib\win64",
-                @"C:\Program Files\MVS\Development\Lib\win64",
-                @"C:\Program Files (x86)\MVS\Development\Lib\Win64",
-                @"C:\MVS\Development\Lib\win64",
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SDK")
-            };
-
-            foreach (string path in possiblePaths)
-            {
-                string dllPath = Path.Combine(path, "MvCameraControl.Net.dll");
-                if (File.Exists(dllPath))
-                {
-                    return dllPath;
-                }
-            }
-
-            // 如果都没找到，返回不带路径的DLL名，让系统搜索PATH
-            return "MvCameraControl.Net.dll";
-        }
-
         public VisionInspectionPage()
         {
             InitializeComponent();
             UpdateTime();
-            
-            // 页面加载时从配置页面获取相机信息
             Loaded += VisionInspectionPage_Loaded;
         }
 
@@ -77,8 +46,6 @@ namespace WpfApp1
                 SerialNoText.Text = "IP地址: " + _cameraIP;
             }
             
-            // 显示SDK路径信息
-            Log("SDK DLL路径: " + SDK_DLL_PATH);
             Log("页面加载完成，等待连接相机...");
         }
 
@@ -118,38 +85,38 @@ namespace WpfApp1
         // 回调委托
         public delegate void MV_CC_DEVICE_CALLBACL(IntPtr pData, uint nDataLen, IntPtr pUser);
 
-        // SDK函数声明 - 使用完整路径
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_EnumDevices", CallingConvention = CallingConvention.Cdecl)]
+        // SDK函数声明 - 使用常量DLL名称
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_EnumDevices", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_EnumDevices(uint nTLayerType, ref MV_CC_DEVICE_INFO_LIST pstDevList);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_CreateHandle", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_CreateHandle", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_CreateHandle(ref IntPtr handle, ref MV_CC_DEVICE_INFO pstDevInfo);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_OpenDevice", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_OpenDevice", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_OpenDevice(IntPtr handle, uint nAccessMode, ushort nSwitchMode);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_StartGrabbing", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_StartGrabbing", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_StartGrabbing(IntPtr handle);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_StopGrabbing", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_StopGrabbing", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_StopGrabbing(IntPtr handle);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_CloseDevice", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_CloseDevice", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_CloseDevice(IntPtr handle);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_DestroyHandle", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_DestroyHandle", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_DestroyHandle(IntPtr handle);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_GetImageBuffer", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_GetImageBuffer", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_GetImageBuffer(IntPtr handle, IntPtr pstFrame, uint nTimeout);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_FreeImageBuffer", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_FreeImageBuffer", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_FreeImageBuffer(IntPtr handle, IntPtr pstFrame);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_SetEnumValue", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_SetEnumValue", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_SetEnumValue(IntPtr handle, string strKey, uint nValue);
 
-        [DllImport(SDK_DLL_PATH, EntryPoint = "MV_CC_SetFloatValue", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("MvCameraControl.Net.dll", EntryPoint = "MV_CC_SetFloatValue", CallingConvention = CallingConvention.Cdecl)]
         private static extern int MV_CC_SetFloatValue(IntPtr handle, string strKey, float fValue);
 
         // 图像帧结构体
@@ -221,7 +188,7 @@ namespace WpfApp1
                 }
 
                 // 打开设备
-                nRet = MV_CC_OpenDevice(_deviceHandle, 1, 0);  // nAccessMode=1 (读写), nSwitchMode=0
+                nRet = MV_CC_OpenDevice(_deviceHandle, 1, 0);
                 if (nRet != 0)
                 {
                     Log("错误: 打开设备失败，错误码: 0x" + nRet.ToString("X"));
@@ -247,12 +214,10 @@ namespace WpfApp1
             }
             catch (BadImageFormatException ex)
             {
-                // DLL加载失败，可能是32位/64位不匹配
                 string errorMsg = "海康SDK加载失败！请确保：\n\n" +
                     "1. 已安装海康机器视觉SDK (MVS)\n" +
-                    "2. 项目平台目标设置为 x64（菜单: 生成 -> 配置管理器 -> 平台 -> x64）\n" +
-                    "3. DLL文件路径: " + SDK_DLL_PATH + "\n\n" +
-                    "4. 将SDK的DLL文件复制到程序目录:\n" +
+                    "2. 项目平台目标设置为 x64\n" +
+                    "3. 将SDK的DLL文件复制到程序目录:\n" +
                     "   从: C:\\Program Files (x86)\\MVS\\Development\\Lib\\win64\\\n" +
                     "   到: bin\\x64\\Debug\\";
                 
@@ -261,8 +226,8 @@ namespace WpfApp1
             }
             catch (DllNotFoundException ex)
             {
-                string errorMsg = "未找到海康SDK DLL文件！\n\n" + ex.Message + "\n\n" +
-                    "请检查DLL文件是否存在:\n" + SDK_DLL_PATH + "\n\n" +
+                string errorMsg = "未找到海康SDK DLL文件！\n\n请检查以下文件是否存在：\n" +
+                    "程序目录\\MvCameraControl.Net.dll\n\n" +
                     "如不存在，请安装海康机器视觉SDK (MVS)\n" +
                     "下载地址: https://www.hikvision.com/cn/support/tools/hikvision-tools/hikvision-mvs/";
                 
@@ -274,8 +239,7 @@ namespace WpfApp1
                 string errorMsg = "SDK函数未找到！\n\n" + ex.Message + "\n\n" +
                     "可能的原因:\n" +
                     "1. SDK版本不匹配，请使用MVS_V3.4.0或更新版本\n" +
-                    "2. DLL文件损坏，请重新安装SDK\n" +
-                    "3. 当前使用的DLL: " + SDK_DLL_PATH;
+                    "2. DLL文件损坏，请重新安装SDK";
                 
                 Log("错误: SDK函数未找到 - " + ex.Message);
                 MessageBox.Show(errorMsg, "SDK版本不匹配", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -366,7 +330,7 @@ namespace WpfApp1
                 int nRet = MV_CC_StopGrabbing(_deviceHandle);
                 if (nRet != 0)
                 {
-                    Log("错误: 停止采集失败，错误码: 0x" + nRet.ToString("X"));
+                    Log("警告: 停止采集失败，错误码: 0x" + nRet.ToString("X"));
                 }
 
                 Log("图像采集已停止");
@@ -461,7 +425,6 @@ namespace WpfApp1
                         // 更新显示
                         Dispatcher.Invoke(() =>
                         {
-                            // 更新帧计数
                             CameraStatusText.Text = "采集中 - " + frameCount + " 帧";
                         });
                     }
@@ -524,6 +487,13 @@ namespace WpfApp1
             }
         }
 
+        // 清空日志
+        private void BtnClearLog_Click(object sender, RoutedEventArgs e)
+        {
+            LogText.Text = "";
+            Log("日志已清空");
+        }
+
         // 更新时间
         private void UpdateTime()
         {
@@ -562,16 +532,6 @@ namespace WpfApp1
         {
             _cameraSerial = serial;
             _cameraIP = ip;
-        }
-
-        protected override void OnDestructed()
-        {
-            // 页面销毁时断开相机连接
-            if (_isConnected)
-            {
-                DisconnectCamera();
-            }
-            base.OnDestructed();
         }
     }
 }

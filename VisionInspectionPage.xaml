@@ -56,97 +56,137 @@
             </Grid>
         </Border>
 
-        <!-- 控制按钮区域 -->
+        <!-- 控制区域 -->
         <Border Grid.Row="3" Background="#16213e" CornerRadius="8" Padding="20" Margin="0,15,0,15">
-            <WrapPanel HorizontalAlignment="Center">
-                <Button x:Name="BtnConnect" Content="连接相机" Width="120" Height="40" 
-                        Margin="10" Click="BtnConnect_Click"
-                        Background="#4CAF50" Foreground="White" FontSize="14"
-                        BorderThickness="0" Cursor="Hand">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                    CornerRadius="6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.85"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <Button x:Name="BtnStartGrab" Content="开始采集" Width="120" Height="40" 
-                        Margin="10" Click="BtnStartGrab_Click" IsEnabled="False"
-                        Background="#2196F3" Foreground="White" FontSize="14"
-                        BorderThickness="0" Cursor="Hand">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                    CornerRadius="6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.85"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
+                <!-- 参数调节 -->
+                <Grid Grid.Row="0" Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                <Button x:Name="BtnStopGrab" Content="停止采集" Width="120" Height="40" 
-                        Margin="10" Click="BtnStopGrab_Click" IsEnabled="False"
-                        Background="#FF9800" Foreground="White" FontSize="14"
-                        BorderThickness="0" Cursor="Hand">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                    CornerRadius="6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.85"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
+                    <!-- 曝光调节 -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,20,0">
+                        <TextBlock Text="曝光时间:" Foreground="White" FontSize="13" 
+                                   VerticalAlignment="Center" Width="80"/>
+                        <Slider x:Name="ExposureSlider" Width="150" Minimum="1" Maximum="100" 
+                                Value="10" VerticalAlignment="Center"
+                                ValueChanged="ExposureSlider_ValueChanged"/>
+                        <TextBlock x:Name="ExposureValueText" Text="10.0 ms" 
+                                   Foreground="#888" FontSize="12" 
+                                   VerticalAlignment="Center" Margin="10,0,0,0" Width="70"/>
+                    </StackPanel>
 
-                <Button x:Name="BtnDisconnect" Content="断开连接" Width="120" Height="40" 
-                        Margin="10" Click="BtnDisconnect_Click" IsEnabled="False"
-                        Background="#f44336" Foreground="White" FontSize="14"
-                        BorderThickness="0" Cursor="Hand">
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                    CornerRadius="6">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.85"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
-            </WrapPanel>
+                    <!-- 增益调节 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="增益:" Foreground="White" FontSize="13" 
+                                   VerticalAlignment="Center" Width="80"/>
+                        <Slider x:Name="GainSlider" Width="150" Minimum="0" Maximum="20" 
+                                Value="0" VerticalAlignment="Center"
+                                ValueChanged="GainSlider_ValueChanged"/>
+                        <TextBlock x:Name="GainValueText" Text="0.0 dB" 
+                                   Foreground="#888" FontSize="12" 
+                                   VerticalAlignment="Center" Margin="10,0,0,0" Width="70"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 操作按钮 -->
+                <WrapPanel Grid.Row="1" HorizontalAlignment="Center">
+                    <Button x:Name="BtnConnect" Content="连接相机" Width="120" Height="40" 
+                            Margin="10" Click="BtnConnect_Click"
+                            Background="#4CAF50" Foreground="White" FontSize="14"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                        CornerRadius="6">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Button x:Name="BtnStartGrab" Content="开始采集" Width="120" Height="40" 
+                            Margin="10" Click="BtnStartGrab_Click" IsEnabled="False"
+                            Background="#2196F3" Foreground="White" FontSize="14"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                        CornerRadius="6">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Button x:Name="BtnStopGrab" Content="停止采集" Width="120" Height="40" 
+                            Margin="10" Click="BtnStopGrab_Click" IsEnabled="False"
+                            Background="#FF9800" Foreground="White" FontSize="14"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                        CornerRadius="6">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <Button x:Name="BtnDisconnect" Content="断开连接" Width="120" Height="40" 
+                            Margin="10" Click="BtnDisconnect_Click" IsEnabled="False"
+                            Background="#f44336" Foreground="White" FontSize="14"
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                        CornerRadius="6">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.5"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </WrapPanel>
+            </Grid>
         </Border>
 
         <!-- 操作日志 -->
