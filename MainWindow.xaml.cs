@@ -1,25 +1,57 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace WpfApp1
 {
     public partial class MainWindow : Window
     {
+        // 页面实例引用
+        private VisionInspectionPage _visionPage;
+        private ParameterConfigPage _configPage;
+
         public MainWindow()
         {
             InitializeComponent();
+            this.Loaded += MainWindow_Loaded;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 页面加载时初始化子页面
+            InitializePages();
+        }
+
+        private void InitializePages()
+        {
+            try
+            {
+                // 创建参数配置页面实例并订阅保存事件
+                _configPage = new ParameterConfigPage();
+                _configPage.ConfigSaved += OnConfigSaved;
+
+                // 创建质检与监控页面实例
+                _visionPage = new VisionInspectionPage();
+
+                // 导航到页面
+                VisionFrame.Navigate(_visionPage);
+                ConfigFrame.Navigate(_configPage);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"初始化页面失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnConfigSaved(string serialNo, string ipAddress)
+        {
+            // 当参数配置保存时，更新质检与监控页面的相机信息
+            if (_visionPage != null)
+            {
+                _visionPage.SetCameraInfo(serialNo, ipAddress);
+            }
         }
 
         // 无边框窗口拖拽

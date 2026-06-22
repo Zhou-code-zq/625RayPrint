@@ -14,11 +14,11 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="#B0B8D4"/>
-            <Setter Property="Height" Value="52"/>
+            <Setter Property="Height" Value="50"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Padding" Value="18 0"/>
-            <Setter Property="Margin" Value="0 6"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="15 0"/>
+            <Setter Property="Margin" Value="0 5"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -48,13 +48,8 @@
         <Style x:Key="ControlCard" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="22"/>
-            <Setter Property="Margin" Value="0 0 18 18"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.08" Color="Black"/>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0 0 15 15"/>
         </Style>
 
         <!-- 状态指示灯 -->
@@ -75,7 +70,7 @@
                     <ControlTemplate TargetType="TabControl">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="230"/>
+                                <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <!-- 左侧Tab头 -->
@@ -83,10 +78,10 @@
                                           VerticalScrollBarVisibility="Auto"
                                           Background="#12142D"
                                           Margin="0">
-                                <StackPanel IsItemsHost="True" Margin="22"/>
+                                <StackPanel IsItemsHost="True" Margin="20"/>
                             </ScrollViewer>
                             <!-- 右侧Tab内容 -->
-                            <Grid Grid.Column="1" Margin="22">
+                            <Grid Grid.Column="1" Margin="20">
                                 <ContentPresenter Content="{TemplateBinding SelectedContent}"/>
                             </Grid>
                         </Grid>
@@ -127,28 +122,28 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="当前工序" Foreground="#666" FontSize="13"/>
-                                        <TextBlock Text="转移打印" Foreground="#12142D" FontSize="20" FontWeight="Bold"/>
+                                        <TextBlock Text="当前工序" Foreground="#666" FontSize="12"/>
+                                        <TextBlock Text="转移打印" Foreground="#12142D" FontSize="18" FontWeight="Bold"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="打印进度" Foreground="#666" FontSize="13"/>
-                                        <ProgressBar Value="65" Background="#E5E7EB" Foreground="#635BFF" Height="10" Margin="0 6 0 0"/>
-                                        <TextBlock Text="65%" Foreground="#635BFF" FontSize="13"/>
+                                        <TextBlock Text="打印进度" Foreground="#666" FontSize="12"/>
+                                        <ProgressBar Value="65" Background="#E5E7EB" Foreground="#635BFF" Height="8" Margin="0 5 0 0"/>
+                                        <TextBlock Text="65%" Foreground="#635BFF" FontSize="12"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="已完成批次" Foreground="#666" FontSize="13"/>
-                                        <TextBlock Text="128 / 200" Foreground="#12142D" FontSize="20" FontWeight="Bold"/>
+                                        <TextBlock Text="已完成批次" Foreground="#666" FontSize="12"/>
+                                        <TextBlock Text="128 / 200" Foreground="#12142D" FontSize="18" FontWeight="Bold"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="3">
-                                        <TextBlock Text="运行时长" Foreground="#666" FontSize="13"/>
-                                        <TextBlock Text="03:45:22" Foreground="#12142D" FontSize="20" FontWeight="Bold"/>
+                                        <TextBlock Text="运行时长" Foreground="#666" FontSize="12"/>
+                                        <TextBlock Text="03:45:22" Foreground="#12142D" FontSize="18" FontWeight="Bold"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
                             <Border Style="{StaticResource ControlCard}">
                                 <StackPanel>
-                                    <TextBlock Text="工艺流程总览" FontSize="17" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 22"/>
+                                    <TextBlock Text="工艺流程总览" FontSize="16" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 20"/>
                                     <Border Background="#F9FAFB" CornerRadius="8" Padding="20" Height="600">
                                         <StackPanel HorizontalAlignment="Center">
                                             <Border Background="#635BFF" CornerRadius="5" Padding="10 5" Width="120">
@@ -191,40 +186,40 @@
 
                             <Border Style="{StaticResource ControlCard}">
                                 <StackPanel>
-                                    <TextBlock Text="关键工艺参数监控" FontSize="17" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 18"/>
-                                    <Grid Margin="0 0 0 12">
+                                    <TextBlock Text="关键工艺参数监控" FontSize="16" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 15"/>
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Background="#F0F4FF" CornerRadius="10" Padding="18" Margin="0 0 12 0">
+                                        <Border Background="#F0F4FF" CornerRadius="8" Padding="15" Margin="0 0 10 0">
                                             <StackPanel>
-                                                <TextBlock Text="打印间隙" Foreground="#666" FontSize="13"/>
-                                                <TextBlock Text="8.2 μm" Foreground="#635BFF" FontSize="22" FontWeight="Bold"/>
-                                                <TextBlock Text="目标: ≤10 μm" Foreground="#666" FontSize="11"/>
+                                                <TextBlock Text="打印间隙" Foreground="#666" FontSize="12"/>
+                                                <TextBlock Text="8.2 μm" Foreground="#635BFF" FontSize="20" FontWeight="Bold"/>
+                                                <TextBlock Text="目标: ≤10 μm" Foreground="#666" FontSize="10"/>
                                             </StackPanel>
                                         </Border>
-                                        <Border Background="#F0F4FF" CornerRadius="10" Padding="18" Margin="0 0 12 0" Grid.Column="1">
+                                        <Border Background="#F0F4FF" CornerRadius="8" Padding="15" Margin="0 0 10 0" Grid.Column="1">
                                             <StackPanel>
-                                                <TextBlock Text="吸附气压" Foreground="#666" FontSize="13"/>
-                                                <TextBlock Text="-85 kPa" Foreground="#10B981" FontSize="22" FontWeight="Bold"/>
-                                                <TextBlock Text="正常范围: -80~-90 kPa" Foreground="#666" FontSize="11"/>
+                                                <TextBlock Text="吸附气压" Foreground="#666" FontSize="12"/>
+                                                <TextBlock Text="-85 kPa" Foreground="#10B981" FontSize="20" FontWeight="Bold"/>
+                                                <TextBlock Text="正常范围: -80~-90 kPa" Foreground="#666" FontSize="10"/>
                                             </StackPanel>
                                         </Border>
-                                        <Border Background="#F0F4FF" CornerRadius="10" Padding="18" Margin="0 0 12 0" Grid.Column="2">
+                                        <Border Background="#F0F4FF" CornerRadius="8" Padding="15" Margin="0 0 10 0" Grid.Column="2">
                                             <StackPanel>
-                                                <TextBlock Text="激光功率" Foreground="#666" FontSize="13"/>
-                                                <TextBlock Text="75%" Foreground="#F59E0B" FontSize="22" FontWeight="Bold"/>
-                                                <TextBlock Text="当前档位: 中功率" Foreground="#666" FontSize="11"/>
+                                                <TextBlock Text="激光功率" Foreground="#666" FontSize="12"/>
+                                                <TextBlock Text="75%" Foreground="#F59E0B" FontSize="20" FontWeight="Bold"/>
+                                                <TextBlock Text="当前档位: 中功率" Foreground="#666" FontSize="10"/>
                                             </StackPanel>
                                         </Border>
-                                        <Border Background="#F0F4FF" CornerRadius="10" Padding="18" Grid.Column="3">
+                                        <Border Background="#F0F4FF" CornerRadius="8" Padding="15" Grid.Column="3">
                                             <StackPanel>
-                                                <TextBlock Text="卷料长度" Foreground="#666" FontSize="13"/>
-                                                <TextBlock Text="1250 mm" Foreground="#12142D" FontSize="22" FontWeight="Bold"/>
-                                                <TextBlock Text="编码器控制中" Foreground="#666" FontSize="11"/>
+                                                <TextBlock Text="卷料长度" Foreground="#666" FontSize="12"/>
+                                                <TextBlock Text="1250 mm" Foreground="#12142D" FontSize="20" FontWeight="Bold"/>
+                                                <TextBlock Text="编码器控制中" Foreground="#666" FontSize="10"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -238,45 +233,45 @@
                         <StackPanel>
                             <Border Style="{StaticResource ControlCard}">
                                 <StackPanel>
-                                    <TextBlock Text="设备状态监控" FontSize="15" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 15"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                                    <TextBlock Text="设备状态监控" FontSize="14" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 15"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981"/>
-                                        <TextBlock Text="Z轴定位模块" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="Z轴定位模块" Foreground="#12142D"/>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981"/>
-                                        <TextBlock Text="视觉定位模块" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="视觉定位模块" Foreground="#12142D"/>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981"/>
-                                        <TextBlock Text="激光打印模块" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="激光打印模块" Foreground="#12142D"/>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981"/>
-                                        <TextBlock Text="热固化平台" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="热固化平台" Foreground="#12142D"/>
                                     </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                                    <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#F59E0B"/>
-                                        <TextBlock Text="卷料伺服驱动" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="卷料伺服驱动" Foreground="#12142D"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Style="{StaticResource StatusLight}" Fill="#10B981"/>
-                                        <TextBlock Text="吸附平台" Foreground="#12142D" FontSize="13"/>
+                                        <TextBlock Text="吸附平台" Foreground="#12142D"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
 
                             <Border Style="{StaticResource ControlCard}">
                                 <StackPanel>
-                                    <TextBlock Text="系统日志" FontSize="15" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 0"/>
-                                    <Border Background="#1E2142" CornerRadius="10" Padding="14" Height="220">
+                                    <TextBlock Text="系统日志" FontSize="14" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 0"/>
+                                    <Border Background="#1E2142" CornerRadius="8" Padding="10" Height="200">
                                         <StackPanel>
-                                            <TextBlock Text="[14:32:15] 间隙检测通过，当前8.2μm" Foreground="#10B981" FontSize="12"/>
-                                            <TextBlock Text="[14:32:10] 视觉定位完成，偏差补偿OK" Foreground="#10B981" FontSize="12" Margin="0 6 0 0"/>
-                                            <TextBlock Text="[14:32:05] 振镜补偿参数加载完成" Foreground="#F59E0B" FontSize="12" Margin="0 6 0 0"/>
-                                            <TextBlock Text="[14:31:58] 转移打印开始执行" Foreground="#635BFF" FontSize="12" Margin="0 6 0 0"/>
-                                            <TextBlock Text="[14:31:45] 供料平台就绪，等待信号" Foreground="#666" FontSize="12" Margin="0 6 0 0"/>
-                                            <TextBlock Text="[14:31:30] 激光模块预热完成" Foreground="#10B981" FontSize="12" Margin="0 6 0 0"/>
+                                            <TextBlock Text="[14:32:15] 间隙检测通过，当前8.2μm" Foreground="#10B981" FontSize="11"/>
+                                            <TextBlock Text="[14:32:10] 视觉定位完成，偏差补偿OK" Foreground="#10B981" FontSize="11" Margin="0 5 0 0"/>
+                                            <TextBlock Text="[14:32:05] 振镜补偿参数加载完成" Foreground="#F59E0B" FontSize="11" Margin="0 5 0 0"/>
+                                            <TextBlock Text="[14:31:58] 转移打印开始执行" Foreground="#635BFF" FontSize="11" Margin="0 5 0 0"/>
+                                            <TextBlock Text="[14:31:45] 供料平台就绪，等待信号" Foreground="#666" FontSize="11" Margin="0 5 0 0"/>
+                                            <TextBlock Text="[14:31:30] 激光模块预热完成" Foreground="#10B981" FontSize="11" Margin="0 5 0 0"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
@@ -284,11 +279,11 @@
 
                             <Border Style="{StaticResource ControlCard}">
                                 <StackPanel>
-                                    <TextBlock Text="快捷操作" FontSize="15" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 0"/>
-                                    <Button Content="开始打印批次" Background="#10B981" Foreground="White" Padding="12" Margin="0 0 0 12" BorderThickness="0" FontSize="13"/>
-                                    <Button Content="暂停打印" Background="#F59E0B" Foreground="White" Padding="12" Margin="0 0 0 12" BorderThickness="0" FontSize="13"/>
-                                    <Button Content="紧急停止" Background="#EF4444" Foreground="White" Padding="12" Margin="0 0 0 12" BorderThickness="0" FontSize="13"/>
-                                    <Button Content="停机调试参数" Background="#635BFF" Foreground="White" Padding="12" BorderThickness="0" FontSize="13"/>
+                                    <TextBlock Text="快捷操作" FontSize="14" FontWeight="Bold" Foreground="#12142D" Margin="0 0 15 0"/>
+                                    <Button Content="开始打印批次" Background="#10B981" Foreground="White" Padding="10" Margin="0 0 0 10" BorderThickness="0" />
+                                    <Button Content="暂停打印" Background="#F59E0B" Foreground="White" Padding="10" Margin="0 0 0 10" BorderThickness="0" />
+                                    <Button Content="紧急停止" Background="#EF4444" Foreground="White" Padding="10" Margin="0 0 0 10" BorderThickness="0" />
+                                    <Button Content="停机调试参数" Background="#635BFF" Foreground="White" Padding="10" BorderThickness="0"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -355,16 +350,23 @@
                         <TextBlock Text="质检与监控"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- 质检与监控内容（可根据需求填充） -->
-                <Border Background="White" CornerRadius="12" Padding="20">
-                    <StackPanel>
-                        <TextBlock Text="质检与监控模块" FontSize="20" FontWeight="Bold" Foreground="#12142D" Margin="0 0 0 20"/>
-                        <TextBlock Text="打印质量检测、设备状态监控等功能待实现..." Foreground="#666" FontSize="14"/>
-                    </StackPanel>
-                </Border>
+                <!-- 质检与监控内容 - 使用Frame导航到VisionInspectionPage -->
+                <Frame x:Name="VisionFrame" NavigationUIVisibility="Hidden" Source="/VisionInspectionPage.xaml"/>
             </TabItem>
 
-            <!-- 6. 退出系统标签项（按钮功能） -->
+            <!-- 6. 参数配置标签页 -->
+            <TabItem Style="{StaticResource TabItemStyle}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚙️" Width="30"/>
+                        <TextBlock Text="参数配置"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <!-- 参数配置内容 - 使用Frame导航到ParameterConfigPage -->
+                <Frame x:Name="ConfigFrame" NavigationUIVisibility="Hidden" Source="/ParameterConfigPage.xaml"/>
+            </TabItem>
+
+            <!-- 7. 退出系统标签项（按钮功能） -->
             <TabItem Style="{StaticResource TabItemStyle}" MouseLeftButtonDown="BtnExit_MouseLeftButtonDown">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
