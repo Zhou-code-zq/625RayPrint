@@ -61,6 +61,21 @@ namespace WpfApp1
             }
         }
 
+        // 供外部调用的方法，用于更新相机信息
+        public void SetCameraInfo(string serialNo, string ipAddress)
+        {
+            try
+            {
+                SerialNoText.Text = string.IsNullOrEmpty(serialNo) ? "待配置" : serialNo;
+                IpText.Text = string.IsNullOrEmpty(ipAddress) ? "待配置" : ipAddress;
+                AddLog("相机信息已更新");
+            }
+            catch (Exception ex)
+            {
+                AddLog("更新相机信息失败: " + ex.Message);
+            }
+        }
+
         private string GetConfigValue(string path, string key, string defaultValue)
         {
             try
