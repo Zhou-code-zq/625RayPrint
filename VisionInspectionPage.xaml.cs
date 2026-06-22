@@ -163,6 +163,30 @@ namespace WpfApp1
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
+            }
+            catch (BadImageFormatException)
+            {
+                // DLL加载失败，可能是32位/64位不匹配
+                string errorMsg = "海康SDK加载失败！请确保：\n\n" +
+                    "1. 已安装海康机器视觉SDK (MVS)\n" +
+                    "2. 项目平台目标设置为 x64（菜单: 生成 -> 配置管理器 -> 平台 -> x64）\n" +
+                    "3. MVS安装目录下的DLL文件已复制到程序运行目录\n\n" +
+                    "默认DLL位置: C:\\Program Files (x86)\\MVS\\Development\\Lib\\win64";
+                
+                Log("错误: 海康SDK DLL加载失败！请检查SDK安装和平台设置");
+                MessageBox.Show(errorMsg, "SDK加载错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            catch (DllNotFoundException ex)
+            {
+                string errorMsg = $"未找到海康SDK DLL文件！\n\n{ex.Message}\n\n" +
+                    "请安装海康机器视觉SDK (MVS)\n" +
+                    "下载地址: https://www.hikvision.com/cn/support/tools/hikvision-tools/hikvision-mvs/";
+                
+                Log($"错误: 未找到SDK DLL - {ex.Message}");
+                MessageBox.Show(errorMsg, "DLL缺失", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
                 Log($"找到 {deviceList.nDeviceNum} 个设备");
 
