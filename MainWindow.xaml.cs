@@ -1,127 +1,246 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace WpfApp1
 {
     public partial class MainWindow : Window
     {
-        private bool isPrinting = false;
-        private bool isPaused = false;
-        private DispatcherTimer timer;
-        private int elapsedSeconds = 0;
+        // 日志集合
+        private ObservableCollection<TextBlock> _logItems = new ObservableCollection<TextBlock>();
+        private DispatcherTimer _timer;
+        private bool _isPrinting = false;
+        private bool _isPaused = false;
+        private int _currentBatch = 128;
+        private int _totalBatch = 200;
+        private int _progress = 65;
+        private TimeSpan _runTime = new TimeSpan(3, 45, 22);
 
         public MainWindow()
         {
             InitializeComponent();
-            InitializeTimer();
+
+            // 启动计时器
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += Timer_Tick;
+            _timer.Start();
         }
 
-        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
+        // 计时器事件 - 更新运行时长
+        private void Timer_Tick(object? sender, EventArgs e)
         {
-            this.WindowState = WindowState.Minimized;
-        }
+            // 更新运行时长
+            _runTime = _runTime.Add(TimeSpan.FromSeconds(1));
+            TxtRunTime.Text = _runTime.ToString(@"hh\:mm\:ss");
 
-        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
-        {
-            if (this.WindowState == WindowState.Maximized)
+            // 如果正在打印，更新进度
+            if (_isPrinting && !_isPaused && _progress < 100)
             {
-                this.WindowState = WindowState.Normal;
-                BtnMaximize.Content = "[]";
+                _progress++;
+                ProgressBarPrint.Value = _progress;
+                TxtProgress.Text = _progress + "%";
+
+                // 每完成一次批次
+                if (_progress >= 100)
+                {
+                    _currentBatch++;
+                    TxtCompletedBatch.Text = _currentBatch + " / " + _totalBatch;
+                    _progress = 0;
+                    ProgressBarPrint.Value = 0;
+                    TxtProgress.Text = "0%";
+                    AddLog("批次打印完成，进入下一批次");
+                }
+            }
+        }
+
+        // 添加日志
+        private void AddLog(string message)
+        {
+            string time = DateTime.Now.ToString("HH:mm:ss");
+            var logEntry = new TextBlock
+            {
+                Text = $"[{time}] {message}",
+                Foreground = GetLogBrush(message),
+                FontSize = 11,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            LogPanel.Children.Add(logEntry);
+        }
+
+        // 根据日志内容选择颜色
+        private System.Windows.Media.Brush GetLogBrush(string message)
+        {
+            if (message.Contains("完成") || message.Contains("通过") || message.Contains("成功"))
+                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129)); // 绿色
+            else if (message.Contains("警告") || message.Contains("注意"))
+                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 158, 11)); // 黄色
+            else if (message.Contains("错误") || message.Contains("失败"))
+                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68)); // 红色
+            else
+                return new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(99, 91, 255)); // 紫色
+        }
+
+        // 标题栏拖拽移动
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                // 双击最大化/还原
+                BtnMaximize_Click(sender, e);
             }
             else
             {
-                this.WindowState = WindowState.Maximized;
-                BtnMaximize.Content = "[ ]";
+                if (WindowState == WindowState.Maximized)
+                {
+                    WindowState = WindowState.Normal;
+                }
+                DragMove();
             }
         }
 
+        // 最小化按钮
+        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        // 最大化按钮
+        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
+        {
+            if (WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Normal;
+                BtnMaximize.Content = "☐";
+            }
+            else
+            {
+                WindowState = WindowState.Maximized;
+                BtnMaximize.Content = "❐";
+            }
+        }
+
+        // 关闭按钮
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
-            ShowExitConfirmation();
-        }
-
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            if (_isPrinting)
             {
-                if (this.WindowState == WindowState.Maximized)
+                MessageBoxResult result = MessageBox.Show(
+                    "系统正在打印中，确定要退出吗？",
+                    "退出确认",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
                 {
-                    double mouseX = e.GetPosition(this).X;
-                    double mouseY = e.GetPosition(this).Y;
-                    this.WindowState = WindowState.Normal;
-                    this.Left = mouseX - (this.Width / 2);
-                    this.Top = mouseY - 20;
+                    _timer.Stop();
+                    Application.Current.Shutdown();
                 }
-                this.DragMove();
+            }
+            else
+            {
+                _timer.Stop();
+                Application.Current.Shutdown();
             }
         }
 
+        // 开始打印
         private void BtnStartPrint_Click(object sender, RoutedEventArgs e)
         {
-            if (isPrinting && !isPaused)
+            if (!_isPrinting)
             {
-                MessageBox.Show("正在打印中...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
+                _isPrinting = true;
+                _isPaused = false;
+                BtnStartPrint.Content = "打印中...";
+                BtnStartPrint.IsEnabled = false;
+                BtnPausePrint.Content = "暂停";
+                BtnPausePrint.IsEnabled = true;
+                TxtCurrentProcess.Text = "转移打印";
+                AddLog("开始打印批次 " + (_currentBatch + 1));
             }
-
-            isPrinting = true;
-            isPaused = false;
-            timer.Start();
-            UpdatePrintButtonState();
-            AddLogEntry("转移打印开始执行", "#6366F1");
         }
 
+        // 暂停打印
         private void BtnPausePrint_Click(object sender, RoutedEventArgs e)
         {
-            if (!isPrinting)
+            if (!_isPrinting) return;
+
+            if (_isPaused)
             {
-                MessageBox.Show("请先开始打印", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
+                _isPaused = false;
+                BtnPausePrint.Content = "暂停";
+                AddLog("恢复打印");
             }
-
-            isPaused = true;
-            timer.Stop();
-            UpdatePrintButtonState();
-            AddLogEntry("打印任务已暂停", "#F59E0B");
+            else
+            {
+                _isPaused = true;
+                BtnPausePrint.Content = "继续";
+                AddLog("暂停打印");
+            }
         }
 
-        private void BtnEmergencyStop_Click(object sender, RoutedEventArgs e)
+        // 停止打印
+        private void BtnStopPrint_Click(object sender, RoutedEventArgs e)
         {
-            isPrinting = false;
-            isPaused = false;
-            timer.Stop();
-            UpdatePrintButtonState();
-            AddLogEntry("紧急停止触发", "#EF4444");
+            if (!_isPrinting) return;
 
-            MessageBox.Show(
-                "紧急停止已触发!\n\n请立即检查设备状态。",
-                "紧急停止",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            MessageBoxResult result = MessageBox.Show(
+                "确定要停止当前打印任务吗？",
+                "停止确认",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _isPrinting = false;
+                _isPaused = false;
+                _progress = 0;
+                ProgressBarPrint.Value = 0;
+                TxtProgress.Text = "0%";
+                BtnStartPrint.Content = "开始打印批次";
+                BtnStartPrint.IsEnabled = true;
+                BtnPausePrint.Content = "暂停";
+                BtnPausePrint.IsEnabled = false;
+                TxtCurrentProcess.Text = "待机";
+                AddLog("用户停止打印");
+            }
         }
 
+        // 停机调试
         private void BtnDebug_Click(object sender, RoutedEventArgs e)
         {
-            AddLogEntry("进入停机调试模式", "#9CA3AF");
-            MessageBox.Show("已进入调试模式", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                "进入停机调试模式，请注意安全！",
+                "调试模式",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            AddLog("进入停机调试模式");
         }
 
+        // 清空日志
         private void BtnClearLog_Click(object sender, RoutedEventArgs e)
         {
             LogPanel.Children.Clear();
-            AddLogEntry("日志已清空", "#9CA3AF");
+            AddLog("日志已清空");
         }
 
+        // 退出系统
+        private void BtnExit_Click(object sender, RoutedEventArgs e)
+        {
+            BtnClose_Click(sender, e);
+        }
+
+        // 取消退出
         private void BtnCancelExit_Click(object sender, RoutedEventArgs e)
         {
-            Grid rootGrid = this.Content as Grid;
-            if (rootGrid != null)
+            // 切换到第一个标签页
+            var tabControl = this.Content as Grid;
+            if (tabControl != null)
             {
-                foreach (object child in rootGrid.Children)
+                foreach (var child in tabControl.Children)
                 {
                     if (child is TabControl tc)
                     {
@@ -130,118 +249,6 @@ namespace WpfApp1
                     }
                 }
             }
-        }
-
-        private void BtnExit_Click(object sender, RoutedEventArgs e)
-        {
-            if (isPrinting)
-            {
-                MessageBoxResult result = MessageBox.Show(
-                    "警告:打印任务正在进行中!\n\n确定要强制退出吗?",
-                    "退出确认",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    BtnEmergencyStop_Click(sender, e);
-                    Application.Current.Shutdown();
-                }
-            }
-            else
-            {
-                MessageBoxResult result = MessageBox.Show(
-                    "确定要退出控制系统吗?",
-                    "退出确认",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    timer.Stop();
-                    Application.Current.Shutdown();
-                }
-            }
-        }
-
-        private void InitializeTimer()
-        {
-            timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromSeconds(1);
-            timer.Tick += Timer_Tick;
-        }
-
-        private void Timer_Tick(object sender, EventArgs e)
-        {
-            if (!isPaused)
-            {
-                elapsedSeconds++;
-                UpdateRuntimeDisplay();
-
-                if (isPrinting && ProgressBarPrint.Value < 100)
-                {
-                    ProgressBarPrint.Value += 0.1;
-                    TxtProgress.Text = string.Format("{0:F0}%", ProgressBarPrint.Value);
-
-                    int currentBatch = int.Parse(TxtCompletedBatch.Text);
-                    if (currentBatch < 200)
-                    {
-                        TxtCompletedBatch.Text = (currentBatch + 1).ToString();
-                    }
-                }
-            }
-        }
-
-        private void UpdateRuntimeDisplay()
-        {
-            int hours = elapsedSeconds / 3600;
-            int minutes = (elapsedSeconds % 3600) / 60;
-            int seconds = elapsedSeconds % 60;
-            TxtRunTime.Text = string.Format("{0:D2}:{1:D2}:{2:D2}", hours, minutes, seconds);
-        }
-
-        private void UpdatePrintButtonState()
-        {
-            if (isPrinting && !isPaused)
-            {
-                BtnStartPrint.IsEnabled = false;
-                BtnPausePrint.Content = "暂停打印";
-                BtnPausePrint.IsEnabled = true;
-            }
-            else if (isPrinting && isPaused)
-            {
-                BtnStartPrint.IsEnabled = false;
-                BtnPausePrint.Content = "继续打印";
-                BtnPausePrint.IsEnabled = true;
-            }
-            else
-            {
-                BtnStartPrint.IsEnabled = true;
-                BtnPausePrint.Content = "暂停打印";
-                BtnPausePrint.IsEnabled = false;
-            }
-        }
-
-        private void AddLogEntry(string message, string color)
-        {
-            TextBlock newEntry = new TextBlock();
-            newEntry.Text = string.Format("[{0}] {1}", DateTime.Now.ToString("HH:mm:ss"), message);
-            newEntry.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
-            newEntry.FontSize = 11;
-            newEntry.FontFamily = new FontFamily("Consolas");
-            newEntry.Margin = new Thickness(0, 6, 0, 0);
-
-            LogPanel.Children.Insert(0, newEntry);
-
-            while (LogPanel.Children.Count > 50)
-            {
-                LogPanel.Children.RemoveAt(LogPanel.Children.Count - 1);
-            }
-        }
-
-        private void ShowExitConfirmation()
-        {
-            BtnExit_Click(this, new RoutedEventArgs());
         }
     }
 }
