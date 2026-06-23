@@ -11,7 +11,7 @@ using MvCamCtrl.NET;
 
 namespace WpfApp1
 {
-    public partial class VisionInspectionPage : Page
+    public partial class VisionInspectionPage : UserControl
     {
         // 相机对象
         private MyCamera _camera = new MyCamera();
@@ -29,9 +29,14 @@ namespace WpfApp1
             InitializeComponent();
         }
 
-        private void Page_Loaded(object sender, RoutedEventArgs e)
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             LoadCameraInfo();
+        }
+
+        private void UserControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            Cleanup();
         }
 
         // 从参数配置页面加载相机信息
@@ -57,7 +62,7 @@ namespace WpfApp1
             Application.Current.Dispatcher.Invoke(() =>
             {
                 string timestamp = DateTime.Now.ToString("HH:mm:ss");
-                TxtLog.Text += $"[{timestamp}] {message}\r\n";
+                LogText.Text += $"[{timestamp}] {message}\r\n";
                 LogScrollViewer.ScrollToEnd();
             });
         }
@@ -67,9 +72,25 @@ namespace WpfApp1
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                BtnConnect.Content = connected ? "断开相机" : "连接相机";
+                BtnConnect.IsEnabled = true;
                 BtnStartGrab.IsEnabled = connected;
                 BtnStopGrab.IsEnabled = connected && _isGrabbing;
+                BtnDisconnect.IsEnabled = connected;
+                ConnectionStatusText.Text = connected ? "状态: 已连接" : "状态: 未连接";
+                ConnectionStatusText.Foreground = connected ? 
+                    new SolidColorBrush(Color.FromRgb(78, 205, 196)) : 
+                    new SolidColorBrush(Color.FromRgb(255, 107, 107));
+                
+                if (connected)
+                {
+                    PreviewPlaceholder.Visibility = Visibility.Collapsed;
+                    CameraImage.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    PreviewPlaceholder.Visibility = Visibility.Visible;
+                    CameraImage.Visibility = Visibility.Collapsed;
+                }
             });
         }
 
@@ -202,6 +223,12 @@ namespace WpfApp1
             }
         }
 
+        // 断开连接按钮
+        private void BtnDisconnect_Click(object sender, RoutedEventArgs e)
+        {
+            DisconnectCamera();
+        }
+
         // 开始采集按钮
         private void BtnStartGrab_Click(object sender, RoutedEventArgs e)
         {
@@ -264,6 +291,12 @@ namespace WpfApp1
             }
         }
 
+        // 清空日志按钮
+        private void BtnClearLog_Click(object sender, RoutedEventArgs e)
+        {
+            LogText.Text = "";
+        }
+
         // 采集线程
         private void GrabImageThread()
         {
@@ -282,15 +315,14 @@ namespace WpfApp1
                     {
                         frameCount++;
                         
-                        // 获取图像尺寸
-                        if (frameOut.pBufAddr != IntPtr.Zero && frameOut.nFrameLen > 0)
+                        // 获取图像尺寸 - 使用结构体中的pBufAddr判断是否有效
+                        IntPtr pAddr = frameOut.pBufAddr;
+                        if (pAddr != IntPtr.Zero)
                         {
-                            width = (int)frameOut.nWidth;
-                            height = (int)frameOut.nHeight;
-                            
-                            // 复制图像数据
-                            byte[] imageData = new byte[frameOut.nFrameLen];
-                            Marshal.Copy(frameOut.pBufAddr, imageData, 0, (int)frameOut.nFrameLen);
+                            // 复制图像数据 - 使用固定大小
+                            int frameLen = width * height * 3; // 假设彩色图像
+                            byte[] imageData = new byte[frameLen];
+                            Marshal.Copy(pAddr, imageData, 0, frameLen);
                             
                             // 显示图像
                             DisplayImage(imageData, width, height);
@@ -298,7 +330,7 @@ namespace WpfApp1
                             // 更新帧计数
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                TxtFrameCount.Text = frameCount.ToString();
+                                FrameCountText.Text = $"帧数: {frameCount}";
                             });
                         }
 
