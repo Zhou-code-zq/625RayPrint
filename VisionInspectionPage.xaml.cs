@@ -57,6 +57,15 @@ namespace WpfApp1
                 int nRet = -1;
                 uint totalDevices = 0;
                 
+                // 优先使用 GenTL 设备（虚拟相机）
+                MyCamera.MV_CC_DEVICE_INFO_LIST genTlList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                nRet = MyCamera.MV_CC_EnumDevices_NET(6, ref genTlList); // 6 = GenTL
+                if (nRet == MyCamera.MV_OK)
+                {
+                    totalDevices += genTlList.nDeviceNum;
+                    AddLog("GenTL 设备: " + genTlList.nDeviceNum);
+                }
+                
                 // GigE设备
                 MyCamera.MV_CC_DEVICE_INFO_LIST gigeList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
                 nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE, ref gigeList);
@@ -66,22 +75,13 @@ namespace WpfApp1
                     AddLog("GigE 设备: " + gigeList.nDeviceNum);
                 }
                 
-                // USB设备
+                // USB设备（最后枚举，因为可能包含不需要的设备）
                 MyCamera.MV_CC_DEVICE_INFO_LIST usbList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
                 nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_USB_DEVICE, ref usbList);
                 if (nRet == MyCamera.MV_OK)
                 {
                     totalDevices += usbList.nDeviceNum;
                     AddLog("USB 设备: " + usbList.nDeviceNum);
-                }
-                
-                // GenTL设备（虚拟相机）- 类型值为6
-                MyCamera.MV_CC_DEVICE_INFO_LIST genTlList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                nRet = MyCamera.MV_CC_EnumDevices_NET(6, ref genTlList); // 6 = GenTL
-                if (nRet == MyCamera.MV_OK)
-                {
-                    totalDevices += genTlList.nDeviceNum;
-                    AddLog("GenTL 设备: " + genTlList.nDeviceNum);
                 }
                 
                 if (totalDevices == 0)
@@ -93,11 +93,18 @@ namespace WpfApp1
                 
                 AddLog("共发现 " + totalDevices + " 个设备");
                 
-                // 优先使用第一个非空列表
+                // 优先使用 GenTL 虚拟相机
                 MyCamera.MV_CC_DEVICE_INFO deviceInfo = new MyCamera.MV_CC_DEVICE_INFO();
                 bool foundDevice = false;
                 
-                if (gigeList.nDeviceNum > 0)
+                if (genTlList.nDeviceNum > 0)
+                {
+                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(genTlList.pDeviceInfo, 0);
+                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                    foundDevice = true;
+                    AddLog("使用 GenTL 虚拟相机");
+                }
+                else if (gigeList.nDeviceNum > 0)
                 {
                     IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(gigeList.pDeviceInfo, 0);
                     deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
@@ -110,13 +117,6 @@ namespace WpfApp1
                     deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
                     foundDevice = true;
                     AddLog("使用 USB 相机");
-                }
-                else if (genTlList.nDeviceNum > 0)
-                {
-                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(genTlList.pDeviceInfo, 0);
-                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-                    foundDevice = true;
-                    AddLog("使用 GenTL 虚拟相机");
                 }
                 
                 if (!foundDevice)
