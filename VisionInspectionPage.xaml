@@ -40,7 +40,7 @@
                                TextAlignment="Center"/>
                     
                     <!-- 图像显示 -->
-                    <Image x:Name="CameraImage" Stretch="Uniform" Visibility="Collapsed"/>
+                    <Image x:Name="CameraDisplay" Stretch="Uniform"/>
                 </Grid>
             </Border>
             
@@ -50,7 +50,7 @@
                     <TextBlock Text="相机连接" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,15"/>
                     
                     <!-- 连接状态 -->
-                    <TextBlock x:Name="ConnectionStatusText" Text="状态: 未连接" Foreground="#FF6B6B" Margin="0,0,0,10"/>
+                    <TextBlock x:Name="StatusText" Text="状态: 未连接" Foreground="#FF6B6B" Margin="0,0,0,10"/>
                     
                     <!-- 连接状态 -->
                     <TextBlock x:Name="CameraInfoText" Text="相机信息: --" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
@@ -73,14 +73,8 @@
                     <TextBlock x:Name="FpsText" Text="帧率: 0 FPS" Foreground="#4ECDC4" FontSize="16" Margin="0,0,0,15"/>
                     
                     <!-- 操作按钮 -->
-                    <Button x:Name="BtnConnect" Content="连接相机" Click="BtnConnect_Click" 
+                    <Button x:Name="CameraConnectButton" Content="连接相机" Click="CameraConnectButton_Click" 
                             Height="40" Margin="0,5" Background="#4ECDC4" Foreground="White" FontWeight="Bold"/>
-                    <Button x:Name="BtnStartGrab" Content="开始采集" Click="BtnStartGrab_Click" 
-                            Height="40" Margin="0,5" IsEnabled="False" Background="#FF6B6B" Foreground="White" FontWeight="Bold"/>
-                    <Button x:Name="BtnStopGrab" Content="停止采集" Click="BtnStopGrab_Click" 
-                            Height="40" Margin="0,5" IsEnabled="False" Background="#FFE66D" Foreground="#1E1E2E" FontWeight="Bold"/>
-                    <Button x:Name="BtnDisconnect" Content="断开连接" Click="BtnDisconnect_Click" 
-                            Height="40" Margin="0,5" IsEnabled="False" Background="#95A5A6" Foreground="White" FontWeight="Bold"/>
                 </StackPanel>
             </Border>
         </Grid>
@@ -97,8 +91,11 @@
                 </Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal" Grid.Row="0">
                     <TextBlock Text="操作日志" FontSize="14" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-                    <Button Content="清空日志" Click="BtnClearLog_Click" Margin="20,0,0,0" Padding="10,2"/>
+                    <Button Content="清空日志" Click="ClearLogButton_Click" Margin="20,0,0,0" Padding="10,2"/>
                 </StackPanel>
+                <TextBox x:Name="LogTextBox" Grid.Row="1" IsReadOnly="True" Background="#1E1E2E" 
+                         Foreground="#4ECDC4" FontFamily="Consolas" AcceptsReturn="True" 
+                         VerticalScrollBarVisibility="Auto" Margin="0,5,0,0"/>
                 <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,5,0,0">
                     <TextBlock x:Name="LogText" Text="" Foreground="#CCCCCC" TextWrapping="Wrap" FontFamily="Consolas"/>
                 </ScrollViewer>

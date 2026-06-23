@@ -50,7 +50,7 @@ namespace WpfApp1
             // 将配置传递给视觉检测页面
             if (_visionPage != null)
             {
-                _visionPage.SetCameraConfig(deviceType, serialNo, ipAddress);
+                _visionPage.SetCameraConfig(serialNo);
             }
         }
 
