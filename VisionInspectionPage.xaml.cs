@@ -122,7 +122,7 @@ namespace WpfApp1
                     {
                         IntPtr pGigEInfo = Marshal.ReadIntPtr(pDeviceInfo, 0);
                         MyCamera.MV_GIGE_DEVICE_INFO stGigEInfo = (MyCamera.MV_GIGE_DEVICE_INFO)Marshal.PtrToStructure(pGigEInfo, typeof(MyCamera.MV_GIGE_DEVICE_INFO));
-                        string serial = Encoding.ASCII.GetString(stGigEInfo.chSerialNumber).TrimEnd('\0');
+                        string serial = stGigEInfo.chSerialNumber.TrimEnd('\0');
                         AppendLog($"[视觉] GigE 设备 {i}: 序列号={serial}");
                         if (!string.IsNullOrEmpty(s_strCameraSerial) && serial == s_strCameraSerial)
                         {
@@ -134,7 +134,7 @@ namespace WpfApp1
                     {
                         IntPtr pUsbInfo = Marshal.ReadIntPtr(pDeviceInfo, 0);
                         MyCamera.MV_USB3_DEVICE_INFO stUsbInfo = (MyCamera.MV_USB3_DEVICE_INFO)Marshal.PtrToStructure(pUsbInfo, typeof(MyCamera.MV_USB3_DEVICE_INFO));
-                        string serial = Encoding.ASCII.GetString(stUsbInfo.chSerialNumber).TrimEnd('\0');
+                        string serial = stUsbInfo.chSerialNumber.TrimEnd('\0');
                         AppendLog($"[视觉] USB 设备 {i}: 序列号={serial}");
                         if (!string.IsNullOrEmpty(s_strCameraSerial) && serial == s_strCameraSerial)
                         {
@@ -150,8 +150,9 @@ namespace WpfApp1
                     return;
                 }
 
-                // 3. 创建设备对象
-                nRet = m_pMyCamera.MV_CC_CreateDevice_NET(ref stDeviceInfo);
+                // 创建设备对象（SDK 4.7.0: 静态方法，pDeviceInfo 从 Marshal.ReadIntPtr 遍历）
+                MyCamera.MV_CC_DEVICE_INFO stDeviceForCreate = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                nRet = m_pMyCamera.MV_CC_CreateDevice_NET(ref stDeviceForCreate);
                 if (MyCamera.MV_OK != nRet)
                 {
                     AppendLog($"[视觉] 创建设备失败，错误码: 0x{nRet:X}");
@@ -293,7 +294,7 @@ namespace WpfApp1
             {
                 try
                 {
-                    // 使用 GetOneFrameTimeout 获取图像（byte[] 方式，避免 MV_FRAME_OUT_INFO 结构体字段问题）
+                    // 使用 GetOneFrameTimeout(IntPtr, uint, ref MV_FRAME_OUT_INFO_EX, int) 获取图像
                     // 20MB 足够应对大多数相机（5000x3000 @ 8bit = 15MB）
                     uint nBufSize = 20 * 1024 * 1024;
                     if (m_pBufForSaveImage == null || m_pBufForSaveImage.Length < nBufSize)
@@ -301,25 +302,21 @@ namespace WpfApp1
                         m_pBufForSaveImage = new byte[nBufSize];
                     }
 
-                    int nRet = m_pMyCamera.MV_CC_GetOneFrameTimeout_NET(m_pBufForSaveImage, nBufSize, 1000);
+                    GCHandle handle = GCHandle.Alloc(m_pBufForSaveImage, GCHandleType.Pinned);
+                    IntPtr pBuf = handle.AddrOfPinnedObject();
+                    MyCamera.MV_FRAME_OUT_INFO_EX stFrameInfo = new MyCamera.MV_FRAME_OUT_INFO_EX();
+                    int nRet = m_pMyCamera.MV_CC_GetOneFrameTimeout_NET(pBuf, nBufSize, ref stFrameInfo, 1000);
                     if (nRet != MyCamera.MV_OK)
                     {
+                        handle.Free();
                         AppendLog($"[视觉] 取图失败，错误码: 0x{nRet:X}");
                         return;
                     }
 
-                    // 获取图像参数
-                    MyCamera.MVCC_INTVALUE stWidth = new MyCamera.MVCC_INTVALUE();
-                    MyCamera.MVCC_INTVALUE stHeight = new MyCamera.MVCC_INTVALUE();
-                    MyCamera.MVCC_INTVALUE stPixelSize = new MyCamera.MVCC_INTVALUE();
-
-                    m_pMyCamera.MV_CC_GetIntValue_NET("Width", ref stWidth);
-                    m_pMyCamera.MV_CC_GetIntValue_NET("Height", ref stHeight);
-                    m_pMyCamera.MV_CC_GetIntValue_NET("PayloadSize", ref stPixelSize);
-
-                    int nWidth = (int)stWidth.nCurValue;
-                    int nHeight = (int)stHeight.nCurValue;
-                    int nDataLen = (int)stPixelSize.nCurValue;
+                    int nWidth = (int)stFrameInfo.nWidth;
+                    int nHeight = (int)stFrameInfo.nHeight;
+                    uint nDataLen = stFrameInfo.nFrameLen;
+                    MyCamera.MvGvspPixelType enPixelType = stFrameInfo.enPixelType;
 
                     // 确定保存路径
                     string saveDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images");
@@ -330,7 +327,9 @@ namespace WpfApp1
                     string bmpPath = System.IO.Path.Combine(saveDir, $"img_{timestamp}.bmp");
 
                     // 直接写入 BMP 文件（无格式转换兜底方案）
-                    WriteBitmapRaw(m_pBufForSaveImage, nWidth, nHeight, nDataLen, bmpPath);
+                    // Mono8: stride = nWidth（每行字节数）
+                    WriteBitmapRaw(m_pBufForSaveImage, nWidth, nHeight, nWidth, bmpPath);
+                    handle.Free();
                     AppendLog($"[视觉] 图片已保存: {bmpPath}");
 
                     // 更新帧计数
