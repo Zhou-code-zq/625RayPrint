@@ -6,8 +6,8 @@
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="1200"
              Background="#1E1E2E"
-             Loaded="UserControl_Loaded"
-             Unloaded="UserControl_Unloaded">
+             Loaded="VisionInspectionPage_Loaded"
+             Unloaded="VisionInspectionPage_Unloaded">>
     
     <Grid Margin="10">
         <Grid.RowDefinitions>

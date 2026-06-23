@@ -116,6 +116,20 @@ namespace WpfApp1
             }
         }
 
+        // 页面加载
+        private void VisionInspectionPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 页面加载时初始化相机
+        }
+
+        // 页面卸载
+        private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            // 停止采集并关闭相机
+            StopGrabbing();
+            CloseCamera();
+        }
+
         // 连接相机
         private void ConnectCamera_Click(object sender, RoutedEventArgs e)
         {
