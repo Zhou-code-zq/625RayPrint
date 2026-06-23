@@ -62,13 +62,22 @@ namespace WpfApp1
             
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
-                string deviceName = deviceType switch
+                string deviceName;
+                switch (deviceType)
                 {
-                    0 => "MV系列",
-                    1 => "CA系列",
-                    2 => "CH系列",
-                    _ => "未知"
-                };
+                    case 0:
+                        deviceName = "MV系列";
+                        break;
+                    case 1:
+                        deviceName = "CA系列";
+                        break;
+                    case 2:
+                        deviceName = "CH系列";
+                        break;
+                    default:
+                        deviceName = "未知";
+                        break;
+                }
                 AddLog($"已加载配置：{deviceName} | {(!string.IsNullOrEmpty(serialNo) ? "序列号:" + serialNo : "IP:" + ipAddress)}");
             }));
         }
