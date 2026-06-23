@@ -41,10 +41,16 @@ namespace WpfApp1
         {
             try
             {
-                Dispatcher.Invoke(() =>
+                // 复制参数值，因为lambda中不能使用ref参数
+                int nWidth = pFrameInfo.nWidth;
+                int nHeight = pFrameInfo.nHeight;
+                int nFrameLen = pFrameInfo.nFrameLen;
+                IntPtr imageBaseAddr = pFrameInfo.pImageAddr;
+
+                this.Dispatcher.Invoke(() =>
                 {
                     // 显示图像
-                    DisplayImage(pData, pFrameInfo);
+                    DisplayImage(pData, nWidth, nHeight, nFrameLen, imageBaseAddr);
                     
                     // 更新帧计数
                     FrameCountText.Text = (int.Parse(FrameCountText.Text) + 1).ToString();
@@ -57,28 +63,27 @@ namespace WpfApp1
         }
 
         // 显示图像
-        private void DisplayImage(IntPtr pData, MyCamera.MV_FRAME_OUT_INFO pFrameInfo)
+        private void DisplayImage(IntPtr pData, int nWidth, int nHeight, int nFrameLen, IntPtr imageBaseAddr)
         {
             try
             {
-                if (pFrameInfo.nWidth <= 0 || pFrameInfo.nHeight <= 0 || pFrameInfo.nFrameLen <= 0)
+                if (nWidth <= 0 || nHeight <= 0 || nFrameLen <= 0)
                     return;
 
                 // 分配缓存
-                if (m_pBufForSaveImg == null || m_pBufForSaveImg.Length < pFrameInfo.nFrameLen)
+                if (m_pBufForSaveImg == null || m_pBufForSaveImg.Length < nFrameLen)
                 {
-                    m_pBufForSaveImg = new byte[pFrameInfo.nFrameLen];
+                    m_pBufForSaveImg = new byte[nFrameLen];
                 }
 
                 // 复制图像数据
-                Marshal.Copy(pData, m_pBufForSaveImg, 0, (int)pFrameInfo.nFrameLen);
+                Marshal.Copy(pData, m_pBufForSaveImg, 0, nFrameLen);
 
                 // 转换为BitmapSource
                 BitmapSource bitmapSource = CreateBitmapSource(
                     m_pBufForSaveImg,
-                    (int)pFrameInfo.nWidth,
-                    (int)pFrameInfo.nHeight,
-                    pFrameInfo.enPixelType);
+                    nWidth,
+                    nHeight);
 
                 // 显示到Image控件
                 CameraDisplay.Source = bitmapSource;
@@ -90,36 +95,16 @@ namespace WpfApp1
         }
 
         // 创建BitmapSource
-        private BitmapSource CreateBitmapSource(byte[] imageData, int width, int height, MyCamera.MvGvspPixelType pixelType)
+        private BitmapSource CreateBitmapSource(byte[] imageData, int width, int height)
         {
             try
             {
-                // 尝试确定颜色格式
-                PixelFormat pixelFormat;
-                int bytesPerPixel;
-
-                switch (pixelType)
-                {
-                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_BGR8_Packed:
-                        pixelFormat = PixelFormats.Bgr24;
-                        bytesPerPixel = 3;
-                        break;
-                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed:
-                        pixelFormat = PixelFormats.Rgb24;
-                        bytesPerPixel = 3;
-                        break;
-                    case MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8:
-                    default:
-                        pixelFormat = PixelFormats.Gray8;
-                        bytesPerPixel = 1;
-                        break;
-                }
-
-                int stride = width * bytesPerPixel;
+                // 假设是灰度图像
+                int stride = width;
                 BitmapSource source = BitmapSource.Create(
                     width, height,
                     96, 96,
-                    pixelFormat, null,
+                    PixelFormats.Gray8, null,
                     imageData, stride);
 
                 // 冻结以便跨线程使用
@@ -259,7 +244,7 @@ namespace WpfApp1
             AddLog("开始采集...");
 
             // 更新UI
-            Dispatcher.Invoke(() =>
+            this.Dispatcher.Invoke(() =>
             {
                 CameraConnectButton.Content = "断开相机";
                 StatusText.Text = "相机已连接";
@@ -289,7 +274,7 @@ namespace WpfApp1
                     AddLog("相机已断开");
                 }
 
-                Dispatcher.Invoke(() =>
+                this.Dispatcher.Invoke(() =>
                 {
                     CameraConnectButton.Content = "连接相机";
                     StatusText.Text = "相机未连接";
@@ -360,7 +345,7 @@ namespace WpfApp1
         // 添加日志
         private void AddLog(string message)
         {
-            Dispatcher.Invoke(() =>
+            this.Dispatcher.Invoke(() =>
             {
                 string log = $"[{DateTime.Now:HH:mm:ss}] {message}";
                 LogTextBox.AppendText(log + "\n");
