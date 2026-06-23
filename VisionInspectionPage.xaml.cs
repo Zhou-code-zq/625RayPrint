@@ -27,11 +27,10 @@ namespace WpfApp1
         private uint _cameraWidth = 1280;
         private uint _cameraHeight = 960;
         
-        // 设备列表
-        private MyCamera.MV_CC_DEVICE_INFO_LIST _deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-        private MyCamera.MV_CC_DEVICE_INFO_LIST _genTlList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-        private MyCamera.MV_CC_DEVICE_INFO_LIST _gigeList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-        private MyCamera.MV_CC_DEVICE_INFO_LIST _usbList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+        // 设备配置
+        private int _deviceType = 0;  // 0=MV系列(GenTL), 1=CA系列(GigE), 2=CH系列(USB)
+        private string _serialNo = "";
+        private string _ipAddress = "";
         
         public VisionInspectionPage()
         {
@@ -49,153 +48,112 @@ namespace WpfApp1
             DisconnectCamera();
         }
         
+        /// <summary>
+        /// 设置相机配置（由MainWindow调用）
+        /// </summary>
+        /// <param name="deviceType">设备类型：0=MV系列, 1=CA系列, 2=CH系列</param>
+        /// <param name="serialNo">设备序列号</param>
+        /// <param name="ipAddress">IP地址</param>
+        public void SetCameraConfig(int deviceType, string serialNo, string ipAddress)
+        {
+            _deviceType = deviceType;
+            _serialNo = serialNo;
+            _ipAddress = ipAddress;
+            
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                string deviceName = deviceType switch
+                {
+                    0 => "MV系列",
+                    1 => "CA系列",
+                    2 => "CH系列",
+                    _ => "未知"
+                };
+                AddLog($"已加载配置：{deviceName} | {(!string.IsNullOrEmpty(serialNo) ? "序列号:" + serialNo : "IP:" + ipAddress)}");
+            }));
+        }
+        
         // 连接相机按钮
         private void BtnConnect_Click(object sender, RoutedEventArgs e)
         {
-            if (CameraSelectComboBox.SelectedIndex < 0)
+            if (_isConnected)
             {
-                // 第一次点击 - 枚举设备
-                EnumDevices();
+                AddLog("相机已连接，请先断开");
+                return;
             }
-            else
+            
+            // 如果没有配置信息，弹出提示
+            if (string.IsNullOrEmpty(_serialNo) && string.IsNullOrEmpty(_ipAddress))
             {
-                // 第二次点击 - 连接选中的相机
-                ConnectSelectedCamera();
+                MessageBox.Show("请先在\"参数配置\"页面设置相机参数并保存！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
+            
+            ConnectCamera();
         }
         
-        // 枚举设备
-        private void EnumDevices()
+        // 连接相机
+        private void ConnectCamera()
         {
             try
             {
                 AddLog("正在枚举设备...");
                 
-                // 清空下拉框
-                CameraSelectComboBox.Items.Clear();
-                _deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                _genTlList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                _gigeList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                _usbList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                // 根据设备类型确定连接方式
+                uint nDeviceType;
+                string deviceTypeName;
                 
-                int totalDevices = 0;
-                
-                // GenTL设备（虚拟相机）
-                int nRet = MyCamera.MV_CC_EnumDevices_NET(6, ref _genTlList);
-                if (nRet == MyCamera.MV_OK)
+                switch (_deviceType)
                 {
-                    for (int i = 0; i < _genTlList.nDeviceNum; i++)
-                    {
-                        CameraSelectComboBox.Items.Add("[GenTL] 虚拟相机 #" + (i + 1));
-                        totalDevices++;
-                    }
-                    if (_genTlList.nDeviceNum > 0)
-                        AddLog("GenTL 虚拟相机: " + _genTlList.nDeviceNum);
+                    case 0:  // MV系列 -> GenTL虚拟相机
+                        nDeviceType = 6;  // GenTL
+                        deviceTypeName = "GenTL 虚拟相机";
+                        break;
+                    case 1:  // CA系列 -> GigE工业相机
+                        nDeviceType = MyCamera.MV_GIGE_DEVICE;
+                        deviceTypeName = "GigE 工业相机";
+                        break;
+                    case 2:  // CH系列 -> USB相机
+                        nDeviceType = MyCamera.MV_USB_DEVICE;
+                        deviceTypeName = "USB 相机";
+                        break;
+                    default:
+                        nDeviceType = 6;
+                        deviceTypeName = "默认(GenTL)";
+                        break;
                 }
                 
-                // GigE设备
-                nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE, ref _gigeList);
-                if (nRet == MyCamera.MV_OK)
-                {
-                    for (int i = 0; i < _gigeList.nDeviceNum; i++)
-                    {
-                        CameraSelectComboBox.Items.Add("[GigE] 工业相机 #" + (i + 1));
-                        totalDevices++;
-                    }
-                    if (_gigeList.nDeviceNum > 0)
-                        AddLog("GigE 工业相机: " + _gigeList.nDeviceNum);
-                }
+                AddLog($"设备类型: {deviceTypeName}");
                 
-                // USB设备
-                nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_USB_DEVICE, ref _usbList);
-                if (nRet == MyCamera.MV_OK)
-                {
-                    for (int i = 0; i < _usbList.nDeviceNum; i++)
-                    {
-                        CameraSelectComboBox.Items.Add("[USB] 相机 #" + (i + 1));
-                        totalDevices++;
-                    }
-                    if (_usbList.nDeviceNum > 0)
-                        AddLog("USB 相机: " + _usbList.nDeviceNum);
-                }
-                
-                if (totalDevices == 0)
-                {
-                    AddLog("未发现任何相机设备！");
-                    MessageBox.Show("未发现任何相机设备。\n\n请确保：\n1. 已安装MVS并正确配置\n2. 已添加虚拟相机（在MVS菜单: 工具->虚拟相机)\n3. 虚拟相机已在MVS中打开", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                
-                // 选中第一个设备
-                CameraSelectComboBox.SelectedIndex = 0;
-                AddLog("发现 " + totalDevices + " 个设备，请从列表中选择");
-                
-                // 更新按钮文字
-                BtnConnect.Content = "连接所选相机";
-            }
-            catch (Exception ex)
-            {
-                AddLog("枚举设备异常: " + ex.Message);
-                MessageBox.Show("枚举设备异常: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-        
-        // 连接选中的相机
-        private void ConnectSelectedCamera()
-        {
-            try
-            {
-                int selectedIndex = CameraSelectComboBox.SelectedIndex;
-                if (selectedIndex < 0)
-                {
-                    MessageBox.Show("请先点击\"连接相机\"按钮发现设备！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                
-                AddLog("正在连接: " + CameraSelectComboBox.SelectedItem);
-                
-                // 确定设备所在的列表和索引
-                MyCamera.MV_CC_DEVICE_INFO deviceInfo = new MyCamera.MV_CC_DEVICE_INFO();
-                IntPtr pDeviceInfo;
-                
-                // 计算选中的设备属于哪个列表
-                int genTlCount = (int)_genTlList.nDeviceNum;
-                int gigeCount = (int)_gigeList.nDeviceNum;
-                
-                if (selectedIndex < genTlCount)
-                {
-                    // GenTL设备
-                    pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(_genTlList.pDeviceInfo, selectedIndex);
-                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-                    _deviceList = _genTlList;
-                    AddLog("连接 GenTL 虚拟相机");
-                }
-                else if (selectedIndex < genTlCount + gigeCount)
-                {
-                    // GigE设备
-                    int gigeIndex = selectedIndex - genTlCount;
-                    pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(_gigeList.pDeviceInfo, gigeIndex);
-                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-                    _deviceList = _gigeList;
-                    AddLog("连接 GigE 工业相机");
-                }
-                else
-                {
-                    // USB设备
-                    int usbIndex = selectedIndex - genTlCount - gigeCount;
-                    pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(_usbList.pDeviceInfo, usbIndex);
-                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-                    _deviceList = _usbList;
-                    AddLog("连接 USB 相机");
-                }
-                
-                // 创建相机实例
-                _camera = new MyCamera();
-                int nRet = _camera.MV_CC_CreateDevice_NET(ref deviceInfo);
+                // 枚举设备
+                MyCamera.MV_CC_DEVICE_INFO_LIST deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                int nRet = MyCamera.MV_CC_EnumDevices_NET(nDeviceType, ref deviceList);
                 if (nRet != MyCamera.MV_OK)
                 {
-                    AddLog("创建设备失败，错误码: " + nRet);
-                    MessageBox.Show("创建设备失败，错误码: " + nRet + "\n\n可能原因：\n1. 虚拟相机未在MVS中打开\n2. 设备被其他程序占用\n3. 驱动异常", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    AddLog($"枚举设备失败，错误码: {nRet}");
+                    MessageBox.Show($"枚举设备失败，错误码: {nRet}\n\n可能原因：\n1. 虚拟相机未在MVS中打开\n2. 设备未连接\n3. 驱动异常", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                
+                if (deviceList.nDeviceNum == 0)
+                {
+                    AddLog("未发现设备！");
+                    MessageBox.Show($"未发现 {deviceTypeName} 设备！\n\n请确保：\n1. 虚拟相机已在MVS中打开（如果是GenTL）\n2. 相机已连接（如果是物理相机）", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                
+                AddLog($"发现 {deviceList.nDeviceNum} 个 {deviceTypeName} 设备");
+                
+                // 创建设备
+                IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, 0);
+                MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                
+                _camera = new MyCamera();
+                nRet = _camera.MV_CC_CreateDevice_NET(ref deviceInfo);
+                if (nRet != MyCamera.MV_OK)
+                {
+                    AddLog($"创建设备失败，错误码: {nRet}");
+                    MessageBox.Show($"创建设备失败，错误码: {nRet}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
@@ -203,9 +161,9 @@ namespace WpfApp1
                 nRet = _camera.MV_CC_OpenDevice_NET(MyCamera.MV_ACCESS_Exclusive, 0);
                 if (nRet != MyCamera.MV_OK)
                 {
-                    AddLog("打开设备失败，错误码: " + nRet);
+                    AddLog($"打开设备失败，错误码: {nRet}");
                     _camera.MV_CC_DestroyDevice_NET();
-                    MessageBox.Show("打开设备失败，错误码: " + nRet + "\n\n可能原因：\n1. 虚拟相机未在MVS中打开\n2. 设备被其他程序占用", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"打开设备失败，错误码: {nRet}\n\n可能原因：\n1. 虚拟相机未在MVS中打开\n2. 设备被其他程序占用", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
@@ -229,11 +187,11 @@ namespace WpfApp1
                         _cameraHeight = stHeight.nCurValue;
                     }
                     
-                    AddLog("相机分辨率: " + _cameraWidth + " x " + _cameraHeight);
+                    AddLog($"相机分辨率: {_cameraWidth} x {_cameraHeight}");
                 }
                 catch (Exception ex)
                 {
-                    AddLog("获取分辨率失败: " + ex.Message);
+                    AddLog($"获取分辨率失败: {ex.Message}");
                 }
                 
                 // 更新UI
@@ -241,18 +199,15 @@ namespace WpfApp1
                 {
                     ConnectionStatusText.Text = "状态: 已连接";
                     ConnectionStatusText.Foreground = new SolidColorBrush(Color.FromRgb(78, 205, 196));
-                    CameraInfoText.Text = "相机信息: " + CameraSelectComboBox.SelectedItem;
-                    IpText.Text = "分辨率: " + _cameraWidth + "x" + _cameraHeight;
-                    CameraSelectComboBox.IsEnabled = false;
-                    BtnConnect.Content = "已连接";
-                    BtnConnect.IsEnabled = false;
+                    CameraInfoText.Text = $"相机信息: {deviceTypeName}";
+                    IpText.Text = $"分辨率: {_cameraWidth}x{_cameraHeight}";
                     UpdateButtonState();
                 }));
             }
             catch (Exception ex)
             {
-                AddLog("连接异常: " + ex.Message);
-                MessageBox.Show("连接异常: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                AddLog($"连接异常: {ex.Message}");
+                MessageBox.Show($"连接异常: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         
@@ -270,7 +225,7 @@ namespace WpfApp1
                 int nRet = _camera.MV_CC_StartGrabbing_NET();
                 if (nRet != MyCamera.MV_OK)
                 {
-                    AddLog("开始采集失败，错误码: " + nRet);
+                    AddLog($"开始采集失败，错误码: {nRet}");
                     return;
                 }
                 
@@ -294,7 +249,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                AddLog("开始采集异常: " + ex.Message);
+                AddLog($"开始采集异常: {ex.Message}");
             }
         }
         
@@ -370,7 +325,7 @@ namespace WpfApp1
                     }
                     catch { }
                     
-                    FpsText.Text = "FPS: " + _currentFps.ToString("F1");
+                    FpsText.Text = $"FPS: {_currentFps:F1}";
                 }));
             }
             catch { }
@@ -403,7 +358,7 @@ namespace WpfApp1
             }
             catch (Exception ex)
             {
-                AddLog("停止采集异常: " + ex.Message);
+                AddLog($"停止采集异常: {ex.Message}");
             }
         }
         
@@ -450,17 +405,12 @@ namespace WpfApp1
                     PreviewPlaceholder.Visibility = Visibility.Visible;
                     CameraImage.Visibility = Visibility.Collapsed;
                     CameraImage.Source = null;
-                    CameraSelectComboBox.IsEnabled = true;
-                    CameraSelectComboBox.Items.Clear();
-                    CameraSelectComboBox.SelectedIndex = -1;
-                    BtnConnect.Content = "连接相机";
-                    BtnConnect.IsEnabled = true;
                     UpdateButtonState();
                 }));
             }
             catch (Exception ex)
             {
-                AddLog("断开连接异常: " + ex.Message);
+                AddLog($"断开连接异常: {ex.Message}");
             }
         }
         
@@ -477,7 +427,7 @@ namespace WpfApp1
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 string time = DateTime.Now.ToString("HH:mm:ss");
-                LogText.Text += "[" + time + "] " + message + "\n";
+                LogText.Text += $"[{time}] {message}\n";
                 LogScrollViewer.ScrollToEnd();
             }));
         }
@@ -485,14 +435,17 @@ namespace WpfApp1
         // 更新按钮状态
         private void UpdateButtonState()
         {
+            BtnConnect.IsEnabled = !_isConnected;
             BtnStartGrab.IsEnabled = _isConnected && !_isGrabbing;
             BtnStopGrab.IsEnabled = _isGrabbing;
             BtnDisconnect.IsEnabled = _isConnected;
         }
         
-        // 提供公共方法供外部调用设置相机信息
+        // 提供公共方法供外部调用设置相机信息（保留兼容）
         public void SetCameraInfo(string serial, string ip)
         {
+            _serialNo = serial;
+            _ipAddress = ip;
         }
     }
 }

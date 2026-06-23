@@ -52,11 +52,7 @@
                     <!-- 连接状态 -->
                     <TextBlock x:Name="ConnectionStatusText" Text="状态: 未连接" Foreground="#FF6B6B" Margin="0,0,0,10"/>
                     
-                    <!-- 相机选择 -->
-                    <TextBlock Text="选择相机设备:" Foreground="White" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="CameraSelectComboBox" Height="30" Margin="0,0,0,15"/>
-                    
-                    <!-- 相机信息 -->
+                    <!-- 连接状态 -->
                     <TextBlock x:Name="CameraInfoText" Text="相机信息: --" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
                     
                     <!-- IP显示 -->

@@ -11,7 +11,8 @@ namespace WpfApp1
         private string _configFilePath = "camera_config.ini";
         
         // 事件：配置保存后触发，用于通知其他页面更新
-        public event Action<string, string> ConfigSaved;
+        // 参数：deviceType(设备类型0=MV系列,1=CA系列,2=CH系列), serialNo, ipAddress
+        public event Action<int, string, string> ConfigSaved;
 
         public ParameterConfigPage()
         {
@@ -50,18 +51,15 @@ namespace WpfApp1
                 return;
             }
 
-            // 模拟连接测试
             BtnTestConnection.IsEnabled = false;
             BtnTestConnection.Content = "测试中...";
 
-            // 实际使用时，这里应该调用海康相机的SDK进行连接测试
-            // MVS SDK: MV_CC_EnumDevices, MV_CC_OpenDevice 等
+            // 模拟测试
             System.Threading.Thread.Sleep(1000);
 
             BtnTestConnection.IsEnabled = true;
             BtnTestConnection.Content = "测试连接";
 
-            // 模拟测试结果（实际应该根据SDK返回结果判断）
             if (connectionInfo.Length >= 6)
             {
                 ShowTestResult(true, $"设备连接测试成功");
@@ -119,10 +117,13 @@ namespace WpfApp1
                 // 保存配置到文件
                 SaveConfig();
 
+                // 获取设备类型
+                int deviceType = DeviceTypeCombo.SelectedIndex;
+
                 // 触发保存事件
                 string serialNo = TxtSerialNo.Text.Trim();
                 string ipAddress = TxtIpAddress.Text.Trim();
-                ConfigSaved?.Invoke(serialNo, ipAddress);
+                ConfigSaved?.Invoke(deviceType, serialNo, ipAddress);
 
                 MessageBox.Show("配置保存成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -175,6 +176,10 @@ namespace WpfApp1
 
                         switch (key)
                         {
+                            case "device_type":
+                                if (int.TryParse(value, out int dt))
+                                    DeviceTypeCombo.SelectedIndex = dt;
+                                break;
                             case "serial_no":
                                 TxtSerialNo.Text = value;
                                 break;
@@ -198,7 +203,7 @@ namespace WpfApp1
                                 ChkAutoConnect.IsChecked = value == "1" || value.ToLower() == "true";
                                 break;
                             case "save_log":
-                                ChkSaveLog.IsChecked = value == "1" || value.ToLower() == "true";
+                                ChkSaveLog.IsChecked = value != "0" && value.ToLower() != "false";
                                 break;
                         }
                     }
@@ -206,58 +211,42 @@ namespace WpfApp1
             }
             catch
             {
-                // 配置文件不存在或格式错误，使用默认值
+                // 使用默认配置
             }
         }
 
+        /// <summary>
+        /// 保存配置到文件
+        /// </summary>
         private void SaveConfig()
         {
-            using (StreamWriter writer = new StreamWriter(_configFilePath))
+            try
             {
-                writer.WriteLine("# 海康相机配置文件");
-                writer.WriteLine($"# 生成时间: {DateTime.Now}");
-                writer.WriteLine();
-                writer.WriteLine($"serial_no={TxtSerialNo.Text.Trim()}");
-                writer.WriteLine($"ip_address={TxtIpAddress.Text.Trim()}");
-                writer.WriteLine($"username={TxtUsername.Text.Trim()}");
-                writer.WriteLine($"password={TxtPassword.Password}");
-                writer.WriteLine($"timeout={TxtTimeout.Text.Trim()}");
-                writer.WriteLine($"retry_count={TxtRetryCount.Text.Trim()}");
-                writer.WriteLine($"auto_connect={(ChkAutoConnect.IsChecked == true ? "1" : "0")}");
-                writer.WriteLine($"save_log={(ChkSaveLog.IsChecked == true ? "1" : "0")}");
+                using (StreamWriter writer = new StreamWriter(_configFilePath))
+                {
+                    writer.WriteLine("# 海康相机配置文件");
+                    writer.WriteLine($"device_type={DeviceTypeCombo.SelectedIndex}");
+                    writer.WriteLine($"serial_no={TxtSerialNo.Text}");
+                    writer.WriteLine($"ip_address={TxtIpAddress.Text}");
+                    writer.WriteLine($"username={TxtUsername.Text}");
+                    writer.WriteLine($"timeout={TxtTimeout.Text}");
+                    writer.WriteLine($"retry_count={TxtRetryCount.Text}");
+                    writer.WriteLine($"auto_connect={(ChkAutoConnect.IsChecked == true ? "1" : "0")}");
+                    writer.WriteLine($"save_log={(ChkSaveLog.IsChecked == true ? "1" : "0")}");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"保存配置文件失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         /// <summary>
-        /// 获取当前配置的相机序列号
+        /// 获取当前配置
         /// </summary>
-        public string GetSerialNo()
+        public (int DeviceType, string SerialNo, string IpAddress) GetCurrentConfig()
         {
-            return TxtSerialNo.Text.Trim();
-        }
-
-        /// <summary>
-        /// 获取当前配置的IP地址
-        /// </summary>
-        public string GetIpAddress()
-        {
-            return TxtIpAddress.Text.Trim();
-        }
-
-        /// <summary>
-        /// 获取当前配置的相机序列号（兼容方法）
-        /// </summary>
-        public string GetCameraSerial()
-        {
-            return GetSerialNo();
-        }
-
-        /// <summary>
-        /// 获取当前配置的相机IP（兼容方法）
-        /// </summary>
-        public string GetCameraIP()
-        {
-            return GetIpAddress();
+            return (DeviceTypeCombo.SelectedIndex, TxtSerialNo.Text.Trim(), TxtIpAddress.Text.Trim());
         }
     }
 }

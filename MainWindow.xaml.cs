@@ -45,10 +45,13 @@ namespace WpfApp1
             }
         }
 
-        private void OnConfigSaved(string serialNo, string ipAddress)
+        private void OnConfigSaved(int deviceType, string serialNo, string ipAddress)
         {
-            // 当参数配置保存时，日志会显示配置信息
-            // 海康相机SDK会自动枚举设备，无需手动设置
+            // 将配置传递给视觉检测页面
+            if (_visionPage != null)
+            {
+                _visionPage.SetCameraConfig(deviceType, serialNo, ipAddress);
+            }
         }
 
         // 无边框窗口拖拽
