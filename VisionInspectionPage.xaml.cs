@@ -10,7 +10,7 @@ using System.Windows.Threading;
 
 namespace WpfApp1
 {
-    public partial class VisionInspectionPage : Page
+    public partial class VisionInspectionPage : UserControl
     {
         #region 海康相机SDK相关
         // 设备列表
