@@ -48,9 +48,11 @@ namespace WpfApp1
         private void OnConfigSaved(int deviceType, string serialNo, string ipAddress)
         {
             // 将配置传递给视觉检测页面
+            // deviceType 来自 ComboBox 索引，我们始终枚举所有类型，用序列号匹配
             if (_visionPage != null)
             {
-                _visionPage.SetCameraConfig(serialNo, (uint)deviceType);
+                uint sdkDeviceType = MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE | MvCamCtrl.NET.MyCamera.MV_USB_DEVICE;
+                _visionPage.SetCameraConfig(serialNo, sdkDeviceType);
             }
         }
 

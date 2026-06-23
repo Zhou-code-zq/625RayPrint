@@ -49,6 +49,8 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <!-- 海康SDK引用 - MVS 5.x -->
   <!-- DLL路径: C:\Program Files (x86)\MVS\Development\DotNet\win64\MvCameraControl.Net.dll -->
