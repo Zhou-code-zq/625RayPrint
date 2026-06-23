@@ -26,8 +26,8 @@ namespace WpfApp1
         private double _currentFps = 0;
         
         // 相机参数
-        private uint _cameraWidth = 0;
-        private uint _cameraHeight = 0;
+        private uint _cameraWidth = 1280;
+        private uint _cameraHeight = 960;
         
         public VisionInspectionPage()
         {
@@ -52,7 +52,7 @@ namespace WpfApp1
             {
                 AddLog("正在枚举设备...");
                 
-                // 枚举设备 - GigE和USB
+                // 枚举设备
                 int nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE | MyCamera.MV_USB_DEVICE, ref _deviceList);
                 if (nRet != MyCamera.MV_OK)
                 {
@@ -114,7 +114,10 @@ namespace WpfApp1
                     
                     AddLog("相机分辨率: " + _cameraWidth + " x " + _cameraHeight);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    AddLog("获取分辨率失败，使用默认值: " + ex.Message);
+                }
                 
                 // 更新UI
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -180,82 +183,20 @@ namespace WpfApp1
         private void GrabThread()
         {
             MyCamera.MV_FRAME_OUT frameOut = new MyCamera.MV_FRAME_OUT();
-            MyCamera.MV_FRAME_OUT_EX frameOutEx = new MyCamera.MV_FRAME_OUT_EX();
             int nRet;
             
             while (!_stopEvent.WaitOne(10))
             {
-                // 尝试获取扩展帧信息（包含宽高）
-                nRet = _camera.MV_CC_GetImageBufferEx_NET(ref frameOutEx, 1000);
+                nRet = _camera.MV_CC_GetImageBuffer_NET(ref frameOut, 1000);
                 if (nRet == MyCamera.MV_OK)
                 {
-                    ProcessImageEx(frameOutEx);
+                    ProcessImage(frameOut);
                     _camera.MV_CC_FreeImageBuffer_NET(ref frameOut);
                 }
-                else
-                {
-                    // 尝试标准获取
-                    nRet = _camera.MV_CC_GetImageBuffer_NET(ref frameOut, 1000);
-                    if (nRet == MyCamera.MV_OK)
-                    {
-                        ProcessImage(frameOut);
-                        _camera.MV_CC_FreeImageBuffer_NET(ref frameOut);
-                    }
-                }
             }
         }
         
-        // 处理扩展帧图像
-        private void ProcessImageEx(MyCamera.MV_FRAME_OUT_EX frameOut)
-        {
-            try
-            {
-                // 更新帧率
-                _frameCount++;
-                TimeSpan elapsed = DateTime.Now - _lastFrameTime;
-                if (elapsed.TotalSeconds >= 1.0)
-                {
-                    _currentFps = _frameCount / elapsed.TotalSeconds;
-                    _frameCount = 0;
-                    _lastFrameTime = DateTime.Now;
-                }
-                
-                // 在UI线程更新显示
-                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    int nWidth = (int)frameOut.nWidth;
-                    int nHeight = (int)frameOut.nHeight;
-                    IntPtr pBufAddr = frameOut.pBufAddr;
-                    
-                    if (nWidth > 0 && nHeight > 0 && pBufAddr != IntPtr.Zero)
-                    {
-                        BitmapSource bitmapSource = BitmapSource.Create(
-                            nWidth,
-                            nHeight,
-                            96, 96,
-                            PixelFormats.Bgr24,
-                            null,
-                            pBufAddr,
-                            nWidth * nHeight * 3,
-                            nWidth * 3);
-                        
-                        bitmapSource.Freeze();
-                        CameraImage.Source = bitmapSource;
-                    }
-                    
-                    FpsText.Text = "FPS: " + _currentFps.ToString("F1");
-                }));
-            }
-            catch (Exception ex)
-            {
-                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    AddLog("处理图像异常: " + ex.Message);
-                }));
-            }
-        }
-        
-        // 处理标准帧图像
+        // 处理图像
         private void ProcessImage(MyCamera.MV_FRAME_OUT frameOut)
         {
             try
@@ -270,31 +211,32 @@ namespace WpfApp1
                     _lastFrameTime = DateTime.Now;
                 }
                 
-                // 使用预设的分辨率（如果获取成功）
+                // 使用预设的分辨率
                 int nWidth = (int)_cameraWidth;
                 int nHeight = (int)_cameraHeight;
-                
-                if (nWidth == 0) nWidth = 1280;
-                if (nHeight == 0) nHeight = 960;
                 
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
                     IntPtr pBufAddr = frameOut.pBufAddr;
                     
-                    if (pBufAddr != IntPtr.Zero)
+                    if (pBufAddr != IntPtr.Zero && nWidth > 0 && nHeight > 0)
                     {
-                        BitmapSource bitmapSource = BitmapSource.Create(
-                            nWidth,
-                            nHeight,
-                            96, 96,
-                            PixelFormats.Bgr24,
-                            null,
-                            pBufAddr,
-                            nWidth * nHeight * 3,
-                            nWidth * 3);
-                        
-                        bitmapSource.Freeze();
-                        CameraImage.Source = bitmapSource;
+                        try
+                        {
+                            BitmapSource bitmapSource = BitmapSource.Create(
+                                nWidth,
+                                nHeight,
+                                96, 96,
+                                PixelFormats.Bgr24,
+                                null,
+                                pBufAddr,
+                                nWidth * nHeight * 3,
+                                nWidth * 3);
+                            
+                            bitmapSource.Freeze();
+                            CameraImage.Source = bitmapSource;
+                        }
+                        catch { }
                     }
                     
                     FpsText.Text = "FPS: " + _currentFps.ToString("F1");
