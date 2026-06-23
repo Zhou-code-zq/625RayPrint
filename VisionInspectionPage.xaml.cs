@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace WpfApp1
 {
@@ -308,7 +309,7 @@ namespace WpfApp1
                     if (LogText != null)
                     {
                         LogText.Text += "[" + time + "] " + message + "\n";
-                        LogText.ScrollToEnd();
+                        LogScrollViewer.ScrollToEnd();
                     }
                 });
             }
