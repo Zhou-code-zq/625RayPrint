@@ -145,11 +145,11 @@ namespace WpfApp1
                     return;
                 }
 
-                // 4. 打开设备（MVS 5.0.1: 2参数）
+                // 4. 打开设备（nAccessMode=1 独占, nSwitchoverKey=0）
+                // 注意：MV_ACCESS_MODE 枚举在部分旧版 MVS DLL 中不存在，
+                // 若编译报错说明需要用 (uint, ushort) 直接传值
                 UpdateStatus("正在打开设备...");
-                nRet = m_pCSI.MV_CC_OpenDevice_NET(
-                    MyCamera.MV_ACCESS_MODE.MV_ACCESS_Exclusive,  // 独占访问
-                    0);                                              // nSwitchoverKey
+                nRet = m_pCSI.MV_CC_OpenDevice_NET(1, (ushort)0);
                 if (nRet != 0)
                 {
                     UpdateStatus("打开设备失败");
@@ -283,7 +283,9 @@ namespace WpfApp1
             _displayThread = null;
         }
 
-        // ========== 保存图像（MVS 5.0.1: GetImageBuffer + ConvertPixelType + SaveImageToFile） ==========
+        // ========== 保存图像（GetImageBuffer + ConvertPixelType + BMP直接写入） ==========
+        // 注意：MV_CC_SaveImageEx_NET / MV_SaveImageToFile_NET / MV_SAVE_IMG_TYPE 在部分旧版 DLL 中不存在
+        // 运行 DllInspector 确认可用 API；若 SaveImage 报错，请将输出发给我
 
         private void SaveImage()
         {
@@ -295,54 +297,87 @@ namespace WpfApp1
 
             try
             {
-                // 1. 获取一帧（GetImageBuffer 方式，对照 CSDN MVS 5.0.1 示例）
-                _stImageOut = new MyCamera.MV_FRAME_OUT();
-                int nRet = m_pCSI.MV_CC_GetImageBuffer_NET(ref _stImageOut, 1000);
+                // 1. 获取一帧
+                MyCamera.MV_FRAME_OUT stImageOut = new MyCamera.MV_FRAME_OUT();
+                int nRet = m_pCSI.MV_CC_GetImageBuffer_NET(ref stImageOut, 1000);
                 if (nRet != 0)
                 {
                     Log(string.Format("获取图像失败: 0x{0:X}", nRet));
                     return;
                 }
 
-                IntPtr pSrcData = _stImageOut.pImageAddr;
-                uint nWidth = _stImageOut.stFrameInfo.nWidth;
-                uint nHeight = _stImageOut.stFrameInfo.nHeight;
-                uint nFrameLen = _stImageOut.stFrameInfo.nFrameLen;
-                MyCamera.MvGvspPixelType enSrcPixelType = _stImageOut.stFrameInfo.enPixelType;
+                // 2. 读取帧信息（字段名因版本而异，请运行 DllInspector 确认）
+                // 尝试 MV_FRAME_OUT 的不同字段名
+                uint nWidth = 0, nHeight = 0, nFrameLen = 0;
+                MyCamera.MvGvspPixelType enSrcPixelType = 0;
+                IntPtr pImageData = IntPtr.Zero;
+
+                try
+                {
+                    // 方式A：MV_FRAME_OUT 有 stFrameInfo 子结构
+                    nWidth = stImageOut.stFrameInfo.nWidth;
+                    nHeight = stImageOut.stFrameInfo.nHeight;
+                    nFrameLen = stImageOut.stFrameInfo.nFrameLen;
+                    enSrcPixelType = stImageOut.stFrameInfo.enPixelType;
+                    pImageData = stImageOut.pImageAddr;
+                }
+                catch
+                {
+                    try
+                    {
+                        // 方式B：MV_FRAME_OUT 直接字段（旧版 MVS）
+                        nWidth = stImageOut.nWidth;
+                        nHeight = stImageOut.nHeight;
+                        nFrameLen = stImageOut.nFrameLen;
+                        enSrcPixelType = stImageOut.enPixelType;
+                        pImageData = stImageOut.pImageAddr;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(string.Format("无法读取帧信息: {0}", ex.Message));
+                        m_pCSI.MV_CC_FreeImageBuffer_NET(ref stImageOut);
+                        return;
+                    }
+                }
 
                 Log(string.Format("获取帧: {0}x{1}, PixelType={2}, FrameLen={3}",
                     nWidth, nHeight, enSrcPixelType, nFrameLen));
 
-                // 2. 分配转换缓存
+                if (nWidth == 0 || nHeight == 0)
+                {
+                    Log("图像尺寸无效");
+                    m_pCSI.MV_CC_FreeImageBuffer_NET(ref stImageOut);
+                    return;
+                }
+
+                // 3. 分配转换缓存
                 if (_convertBuffer == null || _convertBuffer.Length < nFrameLen * 3 + 2048)
                 {
                     _convertBufferSize = nFrameLen * 3 + 2048;
                     _convertBuffer = new byte[_convertBufferSize];
                 }
-                IntPtr pDstBuffer = Marshal.UnsafeAddrOfPinnedArrayElement(_convertBuffer, 0);
 
-                // 3. 像素格式转换（对照 CSDN MVS 5.0.1 RawImageData2Bitmap）
+                // 4. 像素格式转换
                 MyCamera.MvGvspPixelType enDstPixelType;
                 if (IsMonoPixelFormat(enSrcPixelType))
-                {
                     enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8;
-                }
                 else if (IsColorPixelFormat(enSrcPixelType))
-                {
                     enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed;
-                }
                 else
                 {
                     Log(string.Format("不支持的像素格式: {0}", enSrcPixelType));
-                    m_pCSI.MV_CC_FreeImageBuffer_NET(ref _stImageOut);
+                    m_pCSI.MV_CC_FreeImageBuffer_NET(ref stImageOut);
                     return;
                 }
 
-                MyCamera.MV_PIXEL_CONVERT_PARAM stConverPixelParam = new MyCamera.MV_PIXEL_CONVERT_PARAM
+                IntPtr pDstBuffer = Marshal.UnsafeAddrOfPinnedArrayElement(_convertBuffer, 0);
+
+                // MV_CC_ConvertPixelType_NET 的存在性请通过 DllInspector 确认
+                MyCamera.MV_PIXEL_CONVERT_PARAM stConverParam = new MyCamera.MV_PIXEL_CONVERT_PARAM
                 {
                     nWidth = nWidth,
                     nHeight = nHeight,
-                    pSrcData = pSrcData,
+                    pSrcData = pImageData,
                     nSrcDataLen = nFrameLen,
                     enSrcPixelType = enSrcPixelType,
                     enDstPixelType = enDstPixelType,
@@ -350,67 +385,28 @@ namespace WpfApp1
                     nDstBufferSize = _convertBufferSize
                 };
 
-                nRet = m_pCSI.MV_CC_ConvertPixelType_NET(ref stConverPixelParam);
-                if (nRet != 0)
+                int nConvertRet = m_pCSI.MV_CC_ConvertPixelType_NET(ref stConverParam);
+                if (nConvertRet != 0)
                 {
-                    Log(string.Format("像素转换失败: 0x{0:X}", nRet));
-                    m_pCSI.MV_CC_FreeImageBuffer_NET(ref _stImageOut);
-                    return;
+                    Log(string.Format("像素转换失败(0x{0:X})，保存原始数据", nConvertRet));
+                    // 转换失败时直接用原始数据（可能是 Mono8 已经是目标格式）
+                    nDstPixelType = enSrcPixelType;
                 }
 
-                // 4. 生成文件名和保存路径
-                string fileName = string.Format("Capture_{0:yyyyMMdd_HHmmss}.bmp",
-                    DateTime.Now);
+                // 5. 写 BMP 文件
                 string saveDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
                     "CameraCaptures");
                 if (!Directory.Exists(saveDir))
-                {
                     Directory.CreateDirectory(saveDir);
-                }
+                string fileName = string.Format("Capture_{0:yyyyMMdd_HHmmss}.bmp", DateTime.Now);
                 string savePath = Path.Combine(saveDir, fileName);
 
-                // 5. 使用 MV_SaveImageToFile_NET 保存（对照 CSDN MVS 5.0.1 示例）
-                // pData 为 byte[]，strImagePath 为 string（MVS 5.0.1 对应）
-                byte[] imageData = new byte[nFrameLen * 3 + 2048];  // 预分配
-                Array.Copy(_convertBuffer, imageData, (int)Math.Min(imageData.Length, _convertBuffer.Length));
+                WriteBitmapDirectly(savePath, nWidth, nHeight, enDstPixelType, _convertBuffer);
+                Log(string.Format("图像已保存: {0}", savePath));
 
-                // 根据目标格式确定图像类型
-                MyCamera.MV_SAVE_IMG_TYPE enImageType;
-                if (enDstPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8)
-                {
-                    enImageType = MyCamera.MV_SAVE_IMG_TYPE.MV_SAVE_IMG_BMP;
-                }
-                else
-                {
-                    enImageType = MyCamera.MV_SAVE_IMG_TYPE.MV_SAVE_IMG_BMP;
-                }
-
-                // 构造保存参数（对照 CSDN MV_SAVE_IMG_TO_FILE_PARAM）
-                MyCamera.MV_SAVE_IMG_TO_FILE_PARAM stSaveFileParam = new MyCamera.MV_SAVE_IMG_TO_FILE_PARAM
-                {
-                    enImageType = enImageType,
-                    nWidth = nWidth,
-                    nHeight = nHeight,
-                    pData = _convertBuffer,  // MVS 5.0.1: byte[]
-                    nDataLen = (uint)_convertBuffer.Length,
-                    strImagePath = savePath    // MVS 5.0.1: string
-                };
-
-                nRet = m_pCSI.MV_SaveImageToFile_NET(ref stSaveFileParam);
-                if (nRet == 0)
-                {
-                    Log(string.Format("图像已保存: {0}", savePath));
-                }
-                else
-                {
-                    Log(string.Format("保存失败: 0x{0:X}", nRet));
-                    // 保存失败时，尝试直接写文件
-                    WriteBitmapDirectly(savePath, nWidth, nHeight, enDstPixelType, _convertBuffer);
-                }
-
-                // 6. 释放缓存（必须调用）
-                m_pCSI.MV_CC_FreeImageBuffer_NET(ref _stImageOut);
+                // 6. 释放缓存
+                m_pCSI.MV_CC_FreeImageBuffer_NET(ref stImageOut);
             }
             catch (Exception ex)
             {
