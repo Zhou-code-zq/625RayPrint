@@ -34,7 +34,7 @@
                 <Grid>
                     <!-- 预览占位文字 -->
                     <TextBlock x:Name="PreviewPlaceholder"
-                               Text="相机未连接&#x0a;请点击"连接相机"按钮"
+                               Text="相机未连接，请点击连接相机按钮"
                                FontSize="18" Foreground="#888888"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextAlignment="Center"/>

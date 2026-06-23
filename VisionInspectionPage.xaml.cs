@@ -489,5 +489,23 @@ namespace WpfApp1
         {
             Disconnect();
         }
+
+        // 设置相机信息（供外部调用）
+        public void SetCameraInfo(string ip, string serial)
+        {
+            try
+            {
+                _cameraIP = ip;
+                _cameraSerial = serial;
+                Application.Current.Dispatcher.Invoke(new Action(() =>
+                {
+                    if (IpText != null)
+                        IpText.Text = string.IsNullOrEmpty(ip) ? "未设置" : ip;
+                }));
+            }
+            catch
+            {
+            }
+        }
     }
 }
