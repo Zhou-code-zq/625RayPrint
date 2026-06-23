@@ -52,7 +52,7 @@ namespace WpfApp1
             if (_visionPage != null)
             {
                 uint sdkDeviceType = MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE | MvCamCtrl.NET.MyCamera.MV_USB_DEVICE;
-                _visionPage.SetCameraConfig(serialNo, sdkDeviceType);
+                VisionInspectionPage.SetCameraConfig(serialNo, sdkDeviceType);
             }
         }
 
