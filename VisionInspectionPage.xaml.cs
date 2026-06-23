@@ -1,375 +1,499 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Threading;
-using System.Diagnostics;
+using System.IO;
 using MvCamCtrl.NET;
-using System.Runtime.InteropServices;
-using System.Text;
 
 namespace WpfApp1
 {
     public partial class VisionInspectionPage : UserControl
     {
-        private MyCamera m_pCamera = null;
-        private bool m_isGrabbing = false;
-        private Thread m_hReceiveThread = null;
-        private bool m_isThreadRunning = false;
-        private string CamSerialStr = "";
-        private object m_operateLock = new object();
-
+        // 海康相机对象
+        private MyCamera m_pMyCamera = new MyCamera();
+        
+        // 操作锁，防止重复操作
+        private bool m_isOperating = false;
+        
+        // 相机配置
+        private string m_deviceType = "";
+        private string m_deviceSerial = "";
+        private string m_deviceIp = "";
+        
+        // 帧计数
+        private int m_frameCount = 0;
+        
+        // 显示帧计数
+        private int m_displayFrameCount = 0;
+        
+        // 设备列表
+        private MyCamera.MV_CC_DEVICE_INFO_LIST m_stDeviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+        
         public VisionInspectionPage()
         {
             InitializeComponent();
+            LogTextBox.Text = "";
         }
-
-        // 页面加载
-        private void VisionInspectionPage_Loaded(object sender, RoutedEventArgs e)
+        
+        // 日志输出
+        private void Log(string message)
         {
-            AddLog("视觉检测页面已加载");
-        }
-
-        // 页面卸载
-        private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
-        {
-            StopGrabbing();
-        }
-
-        // 设置相机配置
-        public void SetCameraConfig(string serialNo)
-        {
-            CamSerialStr = serialNo;
-            AddLog($"相机序列号: {CamSerialStr}");
-        }
-
-        // 添加日志
-        private void AddLog(string message)
-        {
-            try
+            string logMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    string logEntry = $"[{DateTime.Now:HH:mm:ss}] {message}";
-                    LogTextBox.AppendText(logEntry + Environment.NewLine);
-                    LogTextBox.ScrollToEnd();
-                }));
-            }
-            catch { }
+                LogTextBox.AppendText(logMessage + "\n");
+                LogTextBox.ScrollToEnd();
+            }));
         }
-
-        // 显示图像
-        private void DisplayImage(IntPtr pData, int nWidth, int nHeight, int nPixelType)
-        {
-            try
-            {
-                PixelFormat pixelFormat;
-                if (nPixelType == (int)MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8)
-                {
-                    pixelFormat = PixelFormats.Gray8;
-                }
-                else
-                {
-                    pixelFormat = PixelFormats.Rgb24;
-                }
-
-                BitmapSource bitmap = BitmapSource.Create(
-                    nWidth, nHeight, 96, 96,
-                    pixelFormat, null, pData, nWidth * nHeight * 3, nWidth * 3);
-                bitmap.Freeze();
-                CameraDisplay.Source = bitmap;
-
-                string currentText = FrameCountText.Text ?? "帧数: 0";
-                string numStr = currentText.Replace("帧数: ", "").Trim();
-                if (int.TryParse(numStr, out int count))
-                {
-                    FrameCountText.Text = $"帧数: {count + 1}";
-                }
-                else
-                {
-                    FrameCountText.Text = "帧数: 1";
-                }
-            }
-            catch (Exception ex)
-            {
-                AddLog($"显示图像失败: {ex.Message}");
-            }
-        }
-
-        // 开始采集按钮
+        
+        // 连接相机并开始采集
         private void StartGrabButton_Click(object sender, RoutedEventArgs e)
         {
-            lock (m_operateLock)
+            if (m_isOperating)
             {
-                if (m_isGrabbing)
-                {
-                    AddLog("相机已在采集中");
-                    return;
-                }
-
-                // 如果已连接，先断开
-                if (m_pCamera != null)
-                {
-                    AddLog("相机已连接，先断开...");
-                    StopCamera();
-                }
-
-                AddLog("正在连接相机...");
-
-                // 枚举设备
-                MyCamera.MV_CC_DEVICE_INFO_LIST m_pDeviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                int nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE | MyCamera.MV_USB_DEVICE, ref m_pDeviceList);
-                if (nRet != MyCamera.MV_OK)
-                {
-                    AddLog($"枚举设备失败，错误码: 0x{nRet:X8}");
-                    return;
-                }
-
-                AddLog($"发现 {m_pDeviceList.nDeviceNum} 个设备");
-
-                if (m_pDeviceList.nDeviceNum == 0)
-                {
-                    AddLog("未发现任何设备");
-                    return;
-                }
-
-                // 遍历设备找目标相机
-                bool deviceFound = false;
-                for (int i = 0; i < m_pDeviceList.nDeviceNum; i++)
-                {
-                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(m_pDeviceList.pDeviceInfo, i);
-                    MyCamera.MV_CC_DEVICE_INFO device = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-
-                    // 获取序列号
-                    string deviceSerial = "";
-                    if (device.nDeviceType == 0) // GigE
-                    {
-                        IntPtr buffer = Marshal.UnsafeAddrOfPinnedArrayElement(device.SpecialInfo.stGigEInfo, 0);
-                        MyCamera.MV_GIGE_DEVICE_INFO gigeInfo = (MyCamera.MV_GIGE_DEVICE_INFO)Marshal.PtrToStructure(buffer, typeof(MyCamera.MV_GIGE_DEVICE_INFO));
-                        deviceSerial = Encoding.ASCII.GetString(gigeInfo.chSerialNumber).TrimEnd('\0');
-                    }
-                    else if (device.nDeviceType == 1) // USB
-                    {
-                        IntPtr buffer = Marshal.UnsafeAddrOfPinnedArrayElement(device.SpecialInfo.stUsb3VInfo, 0);
-                        MyCamera.MV_USB3_DEVICE_INFO usbInfo = (MyCamera.MV_USB3_DEVICE_INFO)Marshal.PtrToStructure(buffer, typeof(MyCamera.MV_USB3_DEVICE_INFO));
-                        deviceSerial = Encoding.ASCII.GetString(usbInfo.chSerialNumber).TrimEnd('\0');
-                    }
-
-                    AddLog($"设备 {i}: 类型={device.nDeviceType}, 序列号={deviceSerial}");
-
-                    // 匹配序列号
-                    if (!string.IsNullOrEmpty(deviceSerial) && deviceSerial.Contains(CamSerialStr))
-                    {
-                        AddLog($"找到目标相机: 序列号={deviceSerial}");
-                        deviceFound = true;
-
-                        // 创建设备
-                        m_pCamera = new MyCamera();
-                        nRet = m_pCamera.MV_CC_CreateDevice_NET(ref device);
-                        if (nRet != MyCamera.MV_OK)
-                        {
-                            AddLog($"创建设备失败，错误码: 0x{nRet:X8}");
-                            m_pCamera = null;
-                            return;
-                        }
-
-                        // 打开设备
-                        nRet = m_pCamera.MV_CC_OpenDevice_NET(2, 0);
-                        if (nRet != MyCamera.MV_OK)
-                        {
-                            AddLog($"打开设备失败，错误码: 0x{nRet:X8}");
-                            m_pCamera.MV_CC_DestroyDevice_NET();
-                            m_pCamera = null;
-                            return;
-                        }
-
-                        // 开始采集
-                        nRet = m_pCamera.MV_CC_StartGrabbing_NET();
-                        if (nRet != MyCamera.MV_OK)
-                        {
-                            AddLog($"开始采集失败，错误码: 0x{nRet:X8}");
-                            m_pCamera.MV_CC_CloseDevice_NET();
-                            m_pCamera.MV_CC_DestroyDevice_NET();
-                            m_pCamera = null;
-                            return;
-                        }
-
-                        break;
-                    }
-                }
-
-                if (!deviceFound)
-                {
-                    AddLog($"未找到序列号为 {CamSerialStr} 的相机");
-                    return;
-                }
-
-                // 开始接收线程
-                m_isThreadRunning = true;
-                m_isGrabbing = true;
-                m_hReceiveThread = new Thread(ReceiveThread);
-                m_hReceiveThread.IsBackground = true;
-                m_hReceiveThread.Start();
-
-                AddLog("相机连接成功，开始采集");
-                StatusText.Text = "已连接";
-                StartGrabButton.IsEnabled = false;
-                StopGrabButton.IsEnabled = true;
+                Log("操作进行中，请稍候...");
+                return;
             }
-        }
-
-        // 接收线程
-        private void ReceiveThread()
-        {
-            MyCamera.MV_FRAME_OUT stFrameOut = new MyCamera.MV_FRAME_OUT();
-            int nWidth = 0;
-            int nHeight = 0;
-            int nPixelType = 0;
-            IntPtr imageBuffer = IntPtr.Zero;
-
-            while (m_isThreadRunning)
+            
+            if (m_pMyCamera != null && m_pMyCamera.MV_CC_IsDeviceConnected_NET())
+            {
+                Log("相机已连接");
+                return;
+            }
+            
+            m_isOperating = true;
+            StartGrabButton.IsEnabled = false;
+            StartGrabButton.Content = "连接中...";
+            Log("开始连接相机...");
+            
+            new Thread(() =>
             {
                 try
                 {
-                    if (m_pCamera == null || !m_isGrabbing)
+                    // 获取配置
+                    string deviceType = "", deviceSerial = "", deviceIp = "";
+                    Application.Current.Dispatcher.Invoke(new Action(() =>
                     {
-                        Thread.Sleep(10);
-                        continue;
-                    }
-
-                    int nRet = m_pCamera.MV_CC_GetImageBuffer_NET(ref stFrameOut, 100);
-                    if (nRet == MyCamera.MV_OK)
-                    {
-                        nWidth = (int)stFrameOut.nWidth;
-                        nHeight = (int)stFrameOut.nHeight;
-                        nPixelType = (int)stFrameOut.enPixelType;
-                        imageBuffer = stFrameOut.pImageAddr;
-
-                        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        var mainWindow = Application.Current.MainWindow as MainWindow;
+                        if (mainWindow != null)
                         {
-                            DisplayImage(imageBuffer, nWidth, nHeight, nPixelType);
-                        }));
-
-                        m_pCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
+                            deviceType = mainWindow.CameraDeviceType;
+                            deviceSerial = mainWindow.CameraSerial;
+                            deviceIp = mainWindow.CameraIp;
+                        }
+                    }));
+                    
+                    // 枚举设备
+                    int nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE | MyCamera.MV_USB_DEVICE, ref m_stDeviceList);
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"枚举设备失败，错误码: {nRet}");
+                        goto cleanup;
                     }
+                    
+                    if (m_stDeviceList.nDeviceNum == 0)
+                    {
+                        Log("未发现任何设备");
+                        goto cleanup;
+                    }
+                    
+                    Log($"发现 {m_stDeviceList.nDeviceNum} 个设备");
+                    
+                    // 查找匹配的设备
+                    IntPtr pDeviceInfo = IntPtr.Zero;
+                    bool foundDevice = false;
+                    
+                    for (uint i = 0; i < m_stDeviceList.nDeviceNum; i++)
+                    {
+                        pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(m_stDeviceList.pDeviceInfo, (int)i);
+                        if (pDeviceInfo == IntPtr.Zero) continue;
+                        
+                        MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                        
+                        // 获取设备信息
+                        string serial = GetDeviceSerial(deviceInfo);
+                        uint deviceType = deviceInfo.nDeviceType;
+                        
+                        Log($"设备 {i}: 类型={deviceType}, 序列号={serial}");
+                        
+                        // 根据配置查找设备
+                        bool match = false;
+                        if (!string.IsNullOrEmpty(deviceSerial) && serial == deviceSerial)
+                        {
+                            match = true;
+                        }
+                        else if (!string.IsNullOrEmpty(deviceIp) && deviceType == MyCamera.MV_GIGE_DEVICE)
+                        {
+                            string ip = GetDeviceIp(deviceInfo);
+                            if (ip == deviceIp)
+                            {
+                                match = true;
+                            }
+                        }
+                        
+                        if (match)
+                        {
+                            foundDevice = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!foundDevice)
+                    {
+                        Log($"未找到匹配的设备 (序列号: {deviceSerial}, IP: {deviceIp})");
+                        goto cleanup;
+                    }
+                    
+                    // 创建设备
+                    nRet = m_pMyCamera.MV_CC_CreateDevice_NET(ref deviceInfo);
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"创建设备失败，错误码: {nRet}");
+                        goto cleanup;
+                    }
+                    
+                    // 打开设备
+                    nRet = m_pMyCamera.MV_CC_OpenDevice_NET(MyCamera.MV_ACCESS_Exclusive, 0);
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"打开设备失败，错误码: {nRet}");
+                        m_pMyCamera.MV_CC_DestroyDevice_NET();
+                        goto cleanup;
+                    }
+                    
+                    // 开始采集
+                    nRet = m_pMyCamera.MV_CC_StartGrabbing_NET();
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"开始采集失败，错误码: {nRet}");
+                        m_pMyCamera.MV_CC_CloseDevice_NET();
+                        m_pMyCamera.MV_CC_DestroyDevice_NET();
+                        goto cleanup;
+                    }
+                    
+                    Log("相机连接成功，开始采集");
+                    
+                    // 启动图像采集线程
+                    Thread captureThread = new Thread(GrabImageThread);
+                    captureThread.IsBackground = true;
+                    captureThread.Start();
+                    
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StartGrabButton.Content = "采集中...";
+                        StopGrabButton.IsEnabled = true;
+                    }));
+                    
+                    cleanup:
+                    ;
                 }
                 catch (Exception ex)
                 {
-                    AddLog($"获取图像异常: {ex.Message}");
+                    Log($"异常: {ex.Message}");
                 }
-
-                Thread.Sleep(10);
-            }
+                finally
+                {
+                    m_isOperating = false;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StartGrabButton.IsEnabled = true;
+                        if (!(StartGrabButton.Content.ToString() == "采集中..."))
+                        {
+                            StartGrabButton.Content = "开始采集";
+                        }
+                    }));
+                }
+            }).Start();
         }
-
-        // 停止采集按钮
+        
+        // 停止采集并断开相机
         private void StopGrabButton_Click(object sender, RoutedEventArgs e)
         {
-            lock (m_operateLock)
+            if (m_isOperating)
             {
-                if (!m_isGrabbing && m_pCamera == null)
-                {
-                    AddLog("相机未连接");
-                    return;
-                }
-
-                AddLog("正在停止采集...");
-                StopCamera();
-                AddLog("相机已断开");
-                StatusText.Text = "已断开";
-                StartGrabButton.IsEnabled = true;
-                StopGrabButton.IsEnabled = false;
+                Log("操作进行中，请稍候...");
+                return;
             }
-        }
-
-        // 停止相机
-        private void StopCamera()
-        {
-            try
+            
+            if (m_pMyCamera == null || !m_pMyCamera.MV_CC_IsDeviceConnected_NET())
             {
-                // 停止接收线程
-                m_isThreadRunning = false;
-                m_isGrabbing = false;
-
-                if (m_hReceiveThread != null && m_hReceiveThread.IsAlive)
+                Log("相机未连接");
+                return;
+            }
+            
+            m_isOperating = true;
+            StopGrabButton.IsEnabled = false;
+            StopGrabButton.Content = "断开中...";
+            Log("正在停止采集...");
+            
+            new Thread(() =>
+            {
+                try
                 {
-                    m_hReceiveThread.Join(1000);
-                    if (m_hReceiveThread.IsAlive)
+                    // 停止采集
+                    int nRet = m_pMyCamera.MV_CC_StopGrabbing_NET();
+                    if (nRet != MyCamera.MV_OK)
                     {
-                        m_hReceiveThread.Abort();
+                        Log($"停止采集失败，错误码: {nRet}");
                     }
-                    m_hReceiveThread = null;
+                    
+                    // 关闭设备
+                    nRet = m_pMyCamera.MV_CC_CloseDevice_NET();
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"关闭设备失败，错误码: {nRet}");
+                    }
+                    
+                    // 销毁设备
+                    nRet = m_pMyCamera.MV_CC_DestroyDevice_NET();
+                    if (nRet != MyCamera.MV_OK)
+                    {
+                        Log($"销毁设备失败，错误码: {nRet}");
+                    }
+                    
+                    Log("相机已断开");
+                    m_frameCount = 0;
+                    m_displayFrameCount = 0;
+                    
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        FrameCountText.Text = "0";
+                        StartGrabButton.Content = "开始采集";
+                        StartGrabButton.IsEnabled = true;
+                    }));
                 }
-
-                // 停止采集
-                if (m_pCamera != null)
+                catch (Exception ex)
                 {
-                    m_pCamera.MV_CC_StopGrabbing_NET();
-                    m_pCamera.MV_CC_CloseDevice_NET();
-                    m_pCamera.MV_CC_DestroyDevice_NET();
-                    m_pCamera = null;
+                    Log($"异常: {ex.Message}");
                 }
-            }
-            catch (Exception ex)
+                finally
+                {
+                    m_isOperating = false;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StopGrabButton.Content = "停止采集";
+                    }));
+                }
+            }).Start();
+        }
+        
+        // 采集图像线程
+        private void GrabImageThread()
+        {
+            MyCamera.MV_FRAME_OUT stFrameOut = new MyCamera.MV_FRAME_OUT();
+            int nRet = MyCamera.MV_OK;
+            
+            while (true)
             {
-                AddLog($"停止相机异常: {ex.Message}");
+                // 检查相机是否还连接
+                if (m_pMyCamera == null || !m_pMyCamera.MV_CC_IsDeviceConnected_NET())
+                {
+                    break;
+                }
+                
+                // 获取一帧图像
+                nRet = m_pMyCamera.MV_CC_GetOneFrameTimeout_NET(ref stFrameOut, 1000);
+                if (nRet == MyCamera.MV_OK)
+                {
+                    m_frameCount++;
+                    
+                    // 显示图像
+                    if (stFrameOut.pImageAddr != IntPtr.Zero && stFrameOut.nFrameLen > 0)
+                    {
+                        try
+                        {
+                            ShowImage(stFrameOut);
+                        }
+                        catch (Exception ex)
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                Log($"显示图像异常: {ex.Message}");
+                            }));
+                        }
+                    }
+                    
+                    // 释放图像缓存
+                    m_pMyCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
+                }
+                
+                // 更新帧计数显示
+                if (m_frameCount != m_displayFrameCount)
+                {
+                    m_displayFrameCount = m_frameCount;
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        FrameCountText.Text = m_displayFrameCount.ToString();
+                    }));
+                }
             }
         }
-
+        
+        // 显示图像
+        private void ShowImage(MyCamera.MV_FRAME_OUT stFrameOut)
+        {
+            int nWidth = (int)stFrameOut.nWidth;
+            int nHeight = (int)stFrameOut.nHeight;
+            IntPtr pImageAddr = stFrameOut.pImageAddr;
+            uint nFrameLen = stFrameOut.nFrameLen;
+            uint enPixelType = stFrameOut.enPixelType;
+            
+            if (nWidth <= 0 || nHeight <= 0 || pImageAddr == IntPtr.Zero)
+            {
+                return;
+            }
+            
+            BitmapSource bitmapSource = null;
+            
+            // 根据像素格式创建BitmapSource
+            if (enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8 ||
+                enPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono16)
+            {
+                // 黑白图像
+                bitmapSource = BitmapSource.Create(nWidth, nHeight, 96, 96,
+                    PixelFormats.Gray8, null, pImageAddr, (int)nFrameLen, nWidth);
+            }
+            else
+            {
+                // 彩色图像（假设为BGR8）
+                int stride = nWidth * 3;
+                byte[] imageData = new byte[nFrameLen];
+                Marshal.Copy(pImageAddr, imageData, 0, (int)nFrameLen);
+                
+                // 转换为RGB
+                byte[] rgbData = new byte[nWidth * nHeight * 3];
+                for (int i = 0; i < nWidth * nHeight; i++)
+                {
+                    rgbData[i * 3] = imageData[i * 3 + 2];     // R
+                    rgbData[i * 3 + 1] = imageData[i * 3 + 1]; // G
+                    rgbData[i * 3 + 2] = imageData[i * 3];     // B
+                }
+                
+                bitmapSource = BitmapSource.Create(nWidth, nHeight, 96, 96,
+                    PixelFormats.Rgb24, null, rgbData, stride);
+            }
+            
+            if (bitmapSource != null)
+            {
+                bitmapSource.Freeze();
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    CameraDisplay.Source = bitmapSource;
+                }));
+            }
+        }
+        
         // 保存图像
         private void SaveImageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (m_pCamera == null || !m_isGrabbing)
+            if (CameraDisplay.Source == null)
             {
-                AddLog("相机未连接或未在采集中");
+                Log("没有图像可保存");
                 return;
             }
-
+            
             try
             {
-                MyCamera.MV_FRAME_OUT stFrameOut = new MyCamera.MV_FRAME_OUT();
-                int nRet = m_pCamera.MV_CC_GetImageBuffer_NET(ref stFrameOut, 1000);
-                if (nRet == MyCamera.MV_OK)
+                string fileName = $"Image_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
+                
+                BitmapSource bitmapSource = CameraDisplay.Source as BitmapSource;
+                if (bitmapSource != null)
                 {
-                    int nWidth = (int)stFrameOut.nWidth;
-                    int nHeight = (int)stFrameOut.nHeight;
-                    IntPtr pImageBuffer = stFrameOut.pImageAddr;
-
-                    BitmapSource bitmap = BitmapSource.Create(
-                        nWidth, nHeight, 96, 96,
-                        PixelFormats.Rgb24, null, pImageBuffer, nWidth * nHeight * 3, nWidth * 3);
-                    bitmap.Freeze();
-
-                    string fileName = $"image_{DateTime.Now:yyyyMMdd_HHmmss}.bmp";
-                    string filePath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
-
-                    using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                    using (FileStream fs = new FileStream(path, FileMode.Create))
                     {
-                        BitmapEncoder encoder = new BmpBitmapEncoder();
-                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                        BitmapEncoder encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
                         encoder.Save(fs);
                     }
-
-                    m_pCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
-                    AddLog($"图像已保存: {filePath}");
-                }
-                else
-                {
-                    AddLog($"获取图像失败，错误码: 0x{nRet:X8}");
+                    Log($"图像已保存: {path}");
                 }
             }
             catch (Exception ex)
             {
-                AddLog($"保存图像失败: {ex.Message}");
+                Log($"保存图像失败: {ex.Message}");
             }
         }
-
-        // 拍照
-        private void CaptureButton_Click(object sender, RoutedEventArgs e)
+        
+        // 清空日志
+        private void ClearLogButton_Click(object sender, RoutedEventArgs e)
         {
-            SaveImageButton_Click(sender, e);
+            LogTextBox.Clear();
+        }
+        
+        // 获取设备序列号
+        private string GetDeviceSerial(MyCamera.MV_CC_DEVICE_INFO deviceInfo)
+        {
+            try
+            {
+                // GigE设备
+                if (deviceInfo.nDeviceType == MyCamera.MV_GIGE_DEVICE || 
+                    deviceInfo.nDeviceType == MyCamera.MV_GENTL_GIGE_DEVICE ||
+                    deviceInfo.nDeviceType == MyCamera.MV_VIR_GIGE_DEVICE)
+                {
+                    IntPtr buffer = Marshal.UnsafeAddrOfPinnedArrayElement(deviceInfo.SpecialInfo.stGigEInfo, 0);
+                    MyCamera.MV_GIGE_DEVICE_INFO gigeInfo = (MyCamera.MV_GIGE_DEVICE_INFO)Marshal.PtrToStructure(buffer, typeof(MyCamera.MV_GIGE_DEVICE_INFO));
+                    return System.Text.Encoding.ASCII.GetString(gigeInfo.chSerialNumber).TrimEnd('\0');
+                }
+                // USB设备
+                else if (deviceInfo.nDeviceType == MyCamera.MV_USB_DEVICE)
+                {
+                    IntPtr buffer = Marshal.UnsafeAddrOfPinnedArrayElement(deviceInfo.SpecialInfo.stUsb3VInfo, 0);
+                    MyCamera.MV_USB3_DEVICE_INFO usbInfo = (MyCamera.MV_USB3_DEVICE_INFO)Marshal.PtrToStructure(buffer, typeof(MyCamera.MV_USB3_DEVICE_INFO));
+                    return System.Text.Encoding.ASCII.GetString(usbInfo.chSerialNumber).TrimEnd('\0');
+                }
+            }
+            catch
+            {
+            }
+            return "";
+        }
+        
+        // 获取设备IP
+        private string GetDeviceIp(MyCamera.MV_CC_DEVICE_INFO deviceInfo)
+        {
+            try
+            {
+                if (deviceInfo.nDeviceType == MyCamera.MV_GIGE_DEVICE ||
+                    deviceInfo.nDeviceType == MyCamera.MV_GENTL_GIGE_DEVICE ||
+                    deviceInfo.nDeviceType == MyCamera.MV_VIR_GIGE_DEVICE)
+                {
+                    IntPtr buffer = Marshal.UnsafeAddrOfPinnedArrayElement(deviceInfo.SpecialInfo.stGigEInfo, 0);
+                    MyCamera.MV_GIGE_DEVICE_INFO gigeInfo = (MyCamera.MV_GIGE_DEVICE_INFO)Marshal.PtrToStructure(buffer, typeof(MyCamera.MV_GIGE_DEVICE_INFO));
+                    
+                    // 转换IP地址
+                    byte[] ipBytes = BitConverter.GetBytes(gigeInfo.nCurrentIp);
+                    return $"{ipBytes[0]}.{ipBytes[1]}.{ipBytes[2]}.{ipBytes[3]}";
+                }
+            }
+            catch
+            {
+            }
+            return "";
+        }
+        
+        // 页面加载
+        private void VisionInspectionPage_Loaded(object sender, RoutedEventArgs e)
+        {
+            Log("视觉检测页面已加载");
+            Log("请配置相机参数后点击\"开始采集\"连接相机");
+        }
+        
+        // 页面卸载
+        private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            // 停止采集
+            if (m_pMyCamera != null && m_pMyCamera.MV_CC_IsDeviceConnected_NET())
+            {
+                m_pMyCamera.MV_CC_StopGrabbing_NET();
+                m_pMyCamera.MV_CC_CloseDevice_NET();
+                m_pMyCamera.MV_CC_DestroyDevice_NET();
+            }
         }
     }
 }
