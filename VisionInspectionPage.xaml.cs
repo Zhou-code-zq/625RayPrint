@@ -115,57 +115,45 @@ namespace WpfApp1
             {
                 AddLog($"正在查找序列号为 {serialNo} 的相机...");
 
-                // 设备类型数组 (包含 GenTL 虚拟相机)
-                uint[] deviceTypes = new uint[] { 
-                    MyCamera.MV_GIGE_DEVICE,      // GigE
-                    MyCamera.MV_USB_DEVICE,       // USB
-                    0x00000004u                   // GenTL 虚拟相机
-                };
-
-                MyCamera.MV_CC_DEVICE_INFO targetDevice = new MyCamera.MV_CC_DEVICE_INFO();
-                bool found = false;
-                string foundType = "";
-
-                // 遍历所有设备类型查找匹配的序列号
-                foreach (uint deviceType in deviceTypes)
+                // 使用按位或同时枚举 GigE 和 USB 设备
+                MyCamera.MV_CC_DEVICE_INFO_LIST deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                int enumRet = MyCamera.MV_CC_EnumDevices_NET(
+                    MyCamera.MV_GIGE_DEVICE | MyCamera.MV_USB_DEVICE, ref deviceList);
+                
+                if (enumRet != 0)
                 {
-                    MyCamera.MV_CC_DEVICE_INFO_LIST deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                    int enumRet = MyCamera.MV_CC_EnumDevices_NET(deviceType, ref deviceList);
-                    
-                    if (enumRet != 0)
-                        continue;
-
-                    string typeName = deviceType == MyCamera.MV_GIGE_DEVICE ? "GigE" : 
-                                      deviceType == MyCamera.MV_USB_DEVICE ? "USB" : "GenTL";
-                    AddLog($"检查 {typeName} 设备: 发现 {deviceList.nDeviceNum} 个");
-
-                    for (int i = 0; i < deviceList.nDeviceNum; i++)
-                    {
-                        IntPtr pInfo = Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, i);
-                        MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
-                            pInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-
-                        // 获取序列号 - 使用固定的字节偏移量
-                        string deviceSN = GetDeviceSerialNoFromPtr(pInfo, deviceType);
-                        
-                        AddLog($"  [{i}] 序列号: {deviceSN}");
-
-                        // 序列号匹配
-                        if (!string.IsNullOrEmpty(deviceSN) && deviceSN.Trim() == serialNo.Trim())
-                        {
-                            targetDevice = deviceInfo;
-                            found = true;
-                            foundType = typeName;
-                            AddLog($"找到匹配的 {typeName} 相机！");
-                            break;
-                        }
-                    }
-
-                    if (found)
-                        break;
+                    AddLog($"枚举设备失败，错误码: {enumRet}");
+                    return;
                 }
 
-                if (!found)
+                AddLog($"枚举设备: 发现 {deviceList.nDeviceNum} 个");
+
+                MyCamera.MV_CC_DEVICE_INFO? targetDevice = null;
+
+                for (int i = 0; i < deviceList.nDeviceNum; i++)
+                {
+                    IntPtr pInfo = Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, i);
+                    MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
+                        pInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+
+                    // 获取设备类型
+                    int nDeviceType = Marshal.ReadInt32(pInfo, 0);
+                    
+                    // 获取序列号
+                    string deviceSN = GetDeviceSerialNoFromPtr(pInfo, (uint)nDeviceType);
+                    
+                    AddLog($"  [{i}] 类型={nDeviceType}, 序列号: {deviceSN}");
+
+                    // 序列号匹配
+                    if (!string.IsNullOrEmpty(deviceSN) && deviceSN.Trim() == serialNo.Trim())
+                    {
+                        targetDevice = deviceInfo;
+                        AddLog($"找到匹配的设备！");
+                        break;
+                    }
+                }
+
+                if (targetDevice == null)
                 {
                     AddLog($"未找到序列号为 {serialNo} 的相机");
                     return;
@@ -173,7 +161,8 @@ namespace WpfApp1
 
                 // 创建相机
                 AddLog("正在创建设备...");
-                int createRet = _camera.MV_CC_CreateDevice_NET(ref targetDevice);
+                MyCamera.MV_CC_DEVICE_INFO device = targetDevice.Value;
+                int createRet = _camera.MV_CC_CreateDevice_NET(ref device);
                 if (createRet != 0)
                 {
                     AddLog($"创建设备失败，错误码: {createRet}");
