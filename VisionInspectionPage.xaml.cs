@@ -14,12 +14,22 @@ namespace WpfApp1
 {
     public partial class VisionInspectionPage : Page
     {
-        // ============ SDK 4.7.0 API ============
-        // 参考: https://wenku.csdn.net/answer/6o2jk4xevr (MVS 4.7.0 回调示例)
-        // MV_CC_OpenDevice_NET: 0参数
-        // MV_CC_StartGrabbing_NET: 0参数
-        // MV_CC_RegisterImageCallBackEx_NET: 注册帧回调（使用 cbOutputExdelegate）
-        // MV_CC_Display_ONE_FRAME_NET: 显示单帧
+        // ============ SDK 4.7.0 回调取图 ============
+        // 参考: shankeda 项目 (https://gitee.com/zhouguangya/shankeda)
+        // + https://wenku.csdn.net/answer/6o2jk4xevr
+        //
+        // 回调方式（shankeda 方式）:
+        //   委托: cbOutputdelegate
+        //   结构: MV_FRAME_OUT_INFO
+        //   注册: MV_CC_RegisterImageCallBack_NET
+        //
+        // 回调流程:
+        //   1. StartCamera: 注册回调 -> 开始采集 -> 启动 Display 线程
+        //   2. 回调触发: 拷贝原始数据到独立内存 -> 保存指针+宽高+像素格式
+        //   3. Display 线程: 从共享内存读取 -> Mono8=调色板Bitmap / 彩色=ConvertPixelType->BGR24 Bitmap
+        //   4. Dispatcher 更新 PictureBox.Image
+        //
+        // 重要: 回调的 pData 指向的内存会在下一帧时被 SDK 覆盖，必须立即拷贝！
         // ============ SDK 4.7.0 API ============
 
         private MyCamera m_pMyCamera = new MyCamera();
@@ -34,6 +44,12 @@ namespace WpfApp1
         private byte[] m_pConvertBuf = null;
         private uint m_nBufSizeForSaveImage = 0;
         private uint m_nConvertBufSize = 0;
+
+        // 调试帧计数器
+        private int m_nDebugCbFrame = 0;  // 回调帧计数
+        private int m_nDebugDispFrame = 0; // 显示帧计数
+
+        private byte[] m_cbRawBuf = null;  // 回调中用于拷贝原始数据的临时缓存
 
         // 回调帧信息（用于 SaveImage 和 Display）
         private int m_nImageWidth = 0;
@@ -87,10 +103,11 @@ namespace WpfApp1
         }
 
         // ============ SDK 4.7.0 回调取图 ============
-        // 参考: https://wenku.csdn.net/answer/6o2jk4xevr
-        // cbOutputExdelegate(IntPtr pData, ref MV_FRAME_OUT_INFO_EX pFrameInfo, IntPtr pUser)
-        // 调用 MV_CC_RegisterImageCallBackEx_NET 注册
-        private void ImageCallBack(IntPtr pData, ref MyCamera.MV_FRAME_OUT_INFO_EX pFrameInfo, IntPtr pUser)
+        // 参考 shankeda 项目 + https://wenku.csdn.net/answer/6o2jk4xevr
+        // 回调委托: cbOutputdelegate (SDK 4.7.0 shankeda 使用的是这个)
+        // 帧结构: MV_FRAME_OUT_INFO (含 nWidth/nHeight/nFrameLen/enPixelType)
+        // 注册: MV_CC_RegisterImageCallBack_NET
+        private void ImageCallBack_NonEx(IntPtr pData, ref MyCamera.MV_FRAME_OUT_INFO pFrameInfo, IntPtr pUser)
         {
             try
             {
@@ -100,21 +117,102 @@ namespace WpfApp1
                     m_nFrameCount++;
                 }
 
-                // 保存最新帧信息（用于 Display 和 SaveImage）
+                // 保存最新帧信息（加锁保护）
                 lock (m_ImageLock)
                 {
                     m_nImageWidth = (int)pFrameInfo.nWidth;
                     m_nImageHeight = (int)pFrameInfo.nHeight;
                     m_enPixelType = pFrameInfo.enPixelType;
-                    m_pLatestImageData = pData;
-                    m_nLatestImageLen = pFrameInfo.nFrameLen;
+                    // 重要: 拷贝原始数据！SDK 回调的 pData 指向的内存会在下一帧时被覆盖
+                    uint nFrameLen = pFrameInfo.nFrameLen;
+                    if (nFrameLen > 0)
+                    {
+                        if (m_cbRawBuf == null || m_cbRawBuf.Length < nFrameLen)
+                            m_cbRawBuf = new byte[nFrameLen];
+                        Marshal.Copy(pData, m_cbRawBuf, 0, (int)nFrameLen);
+                        // 释放旧内存（如果存在）
+                        if (m_pLatestImageData != IntPtr.Zero)
+                            Marshal.FreeHGlobal(m_pLatestImageData);
+                        // 分配新内存并拷贝数据
+                        m_pLatestImageData = Marshal.AllocHGlobal((int)nFrameLen);
+                        Marshal.Copy(m_cbRawBuf, 0, m_pLatestImageData, (int)nFrameLen);
+                        m_nLatestImageLen = nFrameLen;
+                    }
                 }
 
-                // 更新帧计数显示
+                // 更新帧计数显示（每30帧打印一次日志）
+                int frameCount;
+                lock (m_FrameCountLock)
+                {
+                    frameCount = m_nFrameCount;
+                }
+                if (frameCount == 1)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        AppendLog($"[回调] 收到第1帧! {pFrameInfo.nWidth}x{pFrameInfo.nHeight} pixelType={pFrameInfo.enPixelType}");
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+                else if (frameCount > 0 && frameCount % 30 == 0)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        AppendLog($"[回调] 已收到 {frameCount} 帧...");
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    FrameCountText.Text = m_nFrameCount.ToString();
-                }));
+                    FrameCountText.Text = frameCount.ToString();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[回调-NE] 异常: {ex.Message}");
+            }
+        }
+
+        // Ex 回调（备用，当非 Ex 版本失败时使用）
+        private void ImageCallBack_Ex(IntPtr pData, ref MyCamera.MV_FRAME_OUT_INFO_EX pFrameInfo, IntPtr pUser)
+        {
+            try
+            {
+                lock (m_FrameCountLock)
+                {
+                    m_nFrameCount++;
+                }
+                lock (m_ImageLock)
+                {
+                    m_nImageWidth = (int)pFrameInfo.nWidth;
+                    m_nImageHeight = (int)pFrameInfo.nHeight;
+                    m_enPixelType = pFrameInfo.enPixelType;
+                    uint nFrameLen = pFrameInfo.nFrameLen;
+                    if (nFrameLen > 0)
+                    {
+                        if (m_cbRawBuf == null || m_cbRawBuf.Length < nFrameLen)
+                            m_cbRawBuf = new byte[nFrameLen];
+                        Marshal.Copy(pData, m_cbRawBuf, 0, (int)nFrameLen);
+                        if (m_pLatestImageData != IntPtr.Zero)
+                            Marshal.FreeHGlobal(m_pLatestImageData);
+                        m_pLatestImageData = Marshal.AllocHGlobal((int)nFrameLen);
+                        Marshal.Copy(m_cbRawBuf, 0, m_pLatestImageData, (int)nFrameLen);
+                        m_nLatestImageLen = nFrameLen;
+                    }
+                }
+                lock (m_FrameCountLock)
+                {
+                    frameCount = m_nFrameCount;
+                }
+                if (frameCount == 1)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        AppendLog($"[回调-Ex] 收到第1帧! {pFrameInfo.nWidth}x{pFrameInfo.nHeight} pixelType={pFrameInfo.enPixelType}");
+                    }), System.Windows.Threading.DispatcherPriority.Background);
+                }
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FrameCountText.Text = frameCount.ToString();
+                }), System.Windows.Threading.DispatcherPriority.Background);
             }
             catch { }
         }
@@ -207,10 +305,7 @@ namespace WpfApp1
 
                 // 5. 设置触发模式为连续采集
                 nRet = m_pMyCamera.MV_CC_SetEnumValue_NET("TriggerMode", 0);
-                if (MyCamera.MV_OK != nRet)
-                {
-                    AppendLog($"[视觉] 设置触发模式失败，错误码: 0x{nRet:X}");
-                }
+                AppendLog($"[视觉] 设置TriggerMode=0, nRet=0x{nRet:X}");
 
                 // 6. 获取 PayloadSize 用于预分配缓存
                 MyCamera.MVCC_INTVALUE stParam = new MyCamera.MVCC_INTVALUE();
@@ -221,16 +316,53 @@ namespace WpfApp1
                     m_pBufForSaveImage = new byte[m_nBufSizeForSaveImage];
                     m_pConvertBuf = new byte[m_nBufSizeForSaveImage];
                     m_nConvertBufSize = m_nBufSizeForSaveImage;
-                    AppendLog($"[视觉] PayloadSize={stParam.nCurValue}，已分配缓存");
+                    AppendLog($"[视觉] PayloadSize={stParam.nCurValue}, 分配缓存={m_nBufSizeForSaveImage}");
+                }
+                else
+                {
+                    AppendLog($"[视觉] 获取PayloadSize失败, nRet=0x{nRet:X}, 使用默认值20MB");
+                    m_nBufSizeForSaveImage = 20 * 1024 * 1024;
+                    m_pBufForSaveImage = new byte[m_nBufSizeForSaveImage];
+                    m_pConvertBuf = new byte[m_nBufSizeForSaveImage];
+                    m_nConvertBufSize = m_nBufSizeForSaveImage;
                 }
 
-                // 7. 注册图像回调（SDK 4.7.0: cbOutputExdelegate）
-                // 参考: https://wenku.csdn.net/answer/6o2jk4xevr
-                MyCamera.cbOutputExdelegate cb = new MyCamera.cbOutputExdelegate(ImageCallBack);
-                nRet = m_pMyCamera.MV_CC_RegisterImageCallBackEx_NET(cb, IntPtr.Zero);
-                if (MyCamera.MV_OK != nRet)
+                // 7. 尝试注册图像回调（使用 shankeda 方式：cbOutputdelegate + RegisterImageCallBack_NET）
+                int cbRegRet = -1;
+                try
                 {
-                    AppendLog($"[视觉] 注册回调失败，错误码: 0x{nRet:X}");
+                    MyCamera.cbOutputdelegate cb = new MyCamera.cbOutputdelegate(ImageCallBack_NonEx);
+                    cbRegRet = m_pMyCamera.MV_CC_RegisterImageCallBack_NET(cb, IntPtr.Zero);
+                    if (cbRegRet == MyCamera.MV_OK)
+                    {
+                        AppendLog("[视觉] 回调注册成功 (cbOutputdelegate + RegisterImageCallBack_NET)");
+                    }
+                    else
+                    {
+                        AppendLog($"[视觉] 回调注册失败，错误码=0x{cbRegRet:X}，尝试 Ex 版本");
+                        // 备用: Ex 版本
+                        try
+                        {
+                            MyCamera.cbOutputExdelegate cbEx = new MyCamera.cbOutputExdelegate(ImageCallBack_Ex);
+                            cbRegRet = m_pMyCamera.MV_CC_RegisterImageCallBackEx_NET(cbEx, IntPtr.Zero);
+                            if (cbRegRet == MyCamera.MV_OK)
+                            {
+                                AppendLog("[视觉] 回调注册成功 (cbOutputExdelegate + RegisterImageCallBackEx_NET)");
+                            }
+                            else
+                            {
+                                AppendLog($"[视觉] 回调 Ex 注册也失败，错误码=0x{cbRegRet:X}");
+                            }
+                        }
+                        catch (Exception ex2)
+                        {
+                            AppendLog($"[视觉] 回调 Ex 注册异常: {ex2.Message}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"[视觉] 回调注册异常: {ex.Message}");
                 }
 
                 // 8. 开始采集（SDK 4.7.0: 0参数）
@@ -242,16 +374,18 @@ namespace WpfApp1
                     m_pMyCamera.MV_CC_DestroyDevice_NET();
                     return;
                 }
+                AppendLog("[视觉] 开始采集成功");
 
                 // 9. 启动 Display 线程（从回调获取帧，手动渲染到 PictureBox）
                 m_bExitDisplayThread = false;
                 m_hDisplayThread = new System.Threading.Thread(DisplayThread);
                 m_hDisplayThread.IsBackground = true;
                 m_hDisplayThread.Start();
+                AppendLog("[视觉] Display线程已启动，等待回调...");
 
                 m_bIsGrabbing = true;
                 m_nFrameCount = 0;
-                AppendLog("[视觉] 采集已开始，回调注册成功");
+                AppendLog("[视觉] 采集已开始，等待回调...");
 
                 Dispatcher.Invoke(() =>
                 {
@@ -278,6 +412,19 @@ namespace WpfApp1
                 {
                     m_hDisplayThread.Join(1000);
                     m_hDisplayThread = null;
+                }
+
+                // 释放回调中分配的图像内存
+                lock (m_ImageLock)
+                {
+                    if (m_pLatestImageData != IntPtr.Zero)
+                    {
+                        Marshal.FreeHGlobal(m_pLatestImageData);
+                        m_pLatestImageData = IntPtr.Zero;
+                    }
+                    m_nImageWidth = 0;
+                    m_nImageHeight = 0;
+                    m_nLatestImageLen = 0;
                 }
 
                 // 停止采集（SDK 4.7.0: 0参数）
@@ -317,6 +464,7 @@ namespace WpfApp1
         // Display 线程：从回调获取最新帧，手动渲染到 PictureBox
         private void DisplayThread()
         {
+            int logInterval = 0;
             while (!m_bExitDisplayThread)
             {
                 if (!m_bIsGrabbing)
@@ -347,39 +495,42 @@ namespace WpfApp1
                 {
                     try
                     {
-                        Bitmap bitmap = null;
                         bool isMono = IsMonoPixelFormat(enPixelType);
+                        Bitmap bitmap = null;
 
                         if (isMono)
                         {
                             // Mono8 -> 灰度 Bitmap
-                            bitmap = new Bitmap(nWidth, nHeight, nWidth, PixelFormat.Format8bppIndexed, pData);
+                            byte[] monoBuf = new byte[nWidth * nHeight];
+                            Marshal.Copy(pData, monoBuf, 0, nWidth * nHeight);
+                            bitmap = new Bitmap(nWidth, nHeight, PixelFormat.Format8bppIndexed);
                             ColorPalette cp = bitmap.Palette;
                             for (int i = 0; i < 256; i++)
                             {
                                 cp.Entries[i] = System.Drawing.Color.FromArgb(i, i, i);
                             }
                             bitmap.Palette = cp;
+                            BitmapData bmpData = bitmap.LockBits(
+                                new Rectangle(0, 0, nWidth, nHeight),
+                                ImageLockMode.WriteOnly, PixelFormat.Format8bppIndexed);
+                            Marshal.Copy(monoBuf, 0, bmpData.Scan0, nWidth * nHeight);
+                            bitmap.UnlockBits(bmpData);
                         }
                         else
                         {
-                            // RGB/BGR -> 彩色 Bitmap（需要转换）
-                            bitmap = ConvertToRgb24Bitmap(pData, nWidth, nHeight);
+                            // 彩色: 转换为 BGR8_Packed（Bitmap 期望 BGR 顺序）
+                            bitmap = ConvertToBgr24BitmapSafe(pData, nWidth, nHeight, enPixelType, nDataLen);
                         }
 
                         if (bitmap != null)
                         {
-                            // 更新 PictureBox
                             Dispatcher.BeginInvoke(new Action(() =>
                             {
                                 try
                                 {
                                     if (CameraDisplayHost.Child is System.Windows.Forms.PictureBox pic)
                                     {
-                                        // 缩放模式
                                         pic.SizeMode = PictureBoxSizeMode.Zoom;
-                                        // 直接赋值 Image，PictureBox 会自动绘制
-                                        // 先 dispose 旧图
                                         if (pic.Image != null)
                                         {
                                             pic.Image.Dispose();
@@ -391,21 +542,41 @@ namespace WpfApp1
                             }), System.Windows.Threading.DispatcherPriority.Background);
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Display] 渲染异常: {ex.Message}");
+                    }
                 }
 
-                System.Threading.Thread.Sleep(30); // ~33fps
+                // 每秒打印一次等待状态日志
+                logInterval++;
+                if (logInterval >= 33)
+                {
+                    logInterval = 0;
+                    if (pData == IntPtr.Zero)
+                    {
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            AppendLog("[Display] 等待回调...（如长时间未收到帧，请检查相机连接和触发模式）");
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                }
+
+                System.Threading.Thread.Sleep(30);
             }
         }
 
-        // 转换原始图像数据为 RGB24 Bitmap
-        private Bitmap ConvertToRgb24Bitmap(IntPtr pData, int nWidth, int nHeight)
+        // 将原始图像数据转换为 BGR24 Bitmap（用于彩色相机）
+        private Bitmap ConvertToBgr24BitmapSafe(IntPtr pData, int nWidth, int nHeight,
+            MyCamera.MvGvspPixelType enSrcPixelType, uint nSrcDataLen)
         {
             try
             {
-                if (m_pConvertBuf == null || m_nConvertBufSize < (uint)(nWidth * nHeight * 3))
+                // 计算所需缓存大小
+                uint neededSize = (uint)(nWidth * nHeight * 3);
+                if (m_pConvertBuf == null || m_nConvertBufSize < neededSize)
                 {
-                    m_nConvertBufSize = (uint)(nWidth * nHeight * 3);
+                    m_nConvertBufSize = neededSize;
                     m_pConvertBuf = new byte[m_nConvertBufSize];
                 }
 
@@ -416,9 +587,10 @@ namespace WpfApp1
                     nWidth = (ushort)nWidth,
                     nHeight = (ushort)nHeight,
                     pSrcData = pData,
-                    nSrcDataLen = m_nLatestImageLen,
-                    enSrcPixelType = m_enPixelType,
-                    enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed,
+                    nSrcDataLen = nSrcDataLen,
+                    enSrcPixelType = enSrcPixelType,
+                    // Bitmap 是 BGR 顺序，直接转 BGR8_Packed
+                    enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_BGR8_Packed,
                     pDstBuffer = pDst,
                     nDstBufferSize = m_nConvertBufSize
                 };
@@ -426,22 +598,22 @@ namespace WpfApp1
                 int nRet = m_pMyCamera.MV_CC_ConvertPixelType_NET(ref stConvertParam);
                 if (nRet != MyCamera.MV_OK)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[Display] 像素转换失败 nRet=0x{nRet:X}, pixelType={enSrcPixelType}");
                     return null;
                 }
 
-                // BGR -> RGB 交换
-                for (int i = 0; i < nWidth * nHeight; i++)
-                {
-                    byte temp = m_pConvertBuf[i * 3];
-                    m_pConvertBuf[i * 3] = m_pConvertBuf[i * 3 + 2];
-                    m_pConvertBuf[i * 3 + 2] = temp;
-                }
-
-                Bitmap bitmap = new Bitmap(nWidth, nHeight, nWidth * 3, PixelFormat.Format24bppRgb, pDst);
+                // 创建 Bitmap（BGR 顺序 -> Format24bppRgb 正好匹配）
+                Bitmap bitmap = new Bitmap(nWidth, nHeight, PixelFormat.Format24bppRgb);
+                BitmapData bmpData = bitmap.LockBits(
+                    new Rectangle(0, 0, nWidth, nHeight),
+                    ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+                Marshal.Copy(m_pConvertBuf, 0, bmpData.Scan0, nWidth * nHeight * 3);
+                bitmap.UnlockBits(bmpData);
                 return bitmap;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[Display] 像素转换异常: {ex.Message}");
                 return null;
             }
         }
