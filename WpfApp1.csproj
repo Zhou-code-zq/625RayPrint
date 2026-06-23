@@ -50,11 +50,11 @@
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
   </ItemGroup>
-  <!-- 海康SDK引用 - MVS -->
-  <!-- DLL路径: C:\Program Files (x86)\MVS\Development\DotNet\win64\net40\MvCamCtrl.NET.dll -->
+  <!-- 海康SDK引用 - MVS 5.x -->
+  <!-- DLL路径: C:\Program Files (x86)\MVS\Development\DotNet\win64\MvCameraControl.Net.dll -->
   <ItemGroup>
-    <Reference Include="MvCamCtrl.NET">
-      <HintPath>$(ProgramFiles(x86))\MVS\Development\DotNet\win64\net40\MvCamCtrl.NET.dll</HintPath>
+    <Reference Include="MvCameraControl.NET">
+      <HintPath>$(ProgramFiles(x86))\MVS\Development\DotNet\win64\MvCameraControl.Net.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
