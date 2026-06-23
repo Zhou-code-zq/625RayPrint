@@ -408,5 +408,14 @@ namespace WpfApp1
                 catch { }
             }
         }
+
+        // 设置相机配置（由MainWindow调用）
+        public void SetCameraConfig(int deviceType, string serialNo, string ipAddress)
+        {
+            _deviceType = deviceType;
+            _serialNo = serialNo;
+            _ipAddress = ipAddress;
+            AddLog($"相机配置: 类型={deviceType}, 序列号={serialNo}, IP={ipAddress}");
+        }
     }
 }
