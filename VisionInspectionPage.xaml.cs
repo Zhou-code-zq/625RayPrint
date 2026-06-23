@@ -129,9 +129,9 @@ namespace WpfApp1
                 foreach (uint deviceType in deviceTypes)
                 {
                     MyCamera.MV_CC_DEVICE_INFO_LIST deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                    int nRet = MyCamera.MV_CC_EnumDevices_NET(deviceType, ref deviceList);
+                    int enumRet = MyCamera.MV_CC_EnumDevices_NET(deviceType, ref deviceList);
                     
-                    if (nRet != 0)
+                    if (enumRet != 0)
                         continue;
 
                     string typeName = deviceType == MyCamera.MV_GIGE_DEVICE ? "GigE" : "USB";
@@ -143,8 +143,8 @@ namespace WpfApp1
                         MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
                             pInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
 
-                        // 获取序列号
-                        string deviceSN = GetDeviceSerialNo(deviceInfo);
+                        // 获取序列号 - 使用固定的字节偏移量
+                        string deviceSN = GetDeviceSerialNoFromPtr(pInfo, deviceType);
                         
                         AddLog($"  [{i}] 序列号: {deviceSN}");
 
@@ -169,52 +169,21 @@ namespace WpfApp1
                     return;
                 }
 
-                // 重新枚举（因为设备列表在循环中会变化）
-                uint targetDeviceType = foundType == "GigE" ? MyCamera.MV_GIGE_DEVICE : MyCamera.MV_USB_DEVICE;
-                MyCamera.MV_CC_DEVICE_INFO_LIST finalDeviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
-                MyCamera.MV_CC_EnumDevices_NET(targetDeviceType, ref finalDeviceList);
-
-                // 找到目标设备的索引
-                int targetIndex = -1;
-                for (int i = 0; i < finalDeviceList.nDeviceNum; i++)
-                {
-                    IntPtr pInfo = Marshal.UnsafeAddrOfPinnedArrayElement(finalDeviceList.pDeviceInfo, i);
-                    MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
-                        pInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-
-                    if (GetDeviceSerialNo(deviceInfo) == serialNo)
-                    {
-                        targetIndex = i;
-                        break;
-                    }
-                }
-
-                if (targetIndex < 0)
-                {
-                    AddLog("无法定位目标设备");
-                    return;
-                }
-
-                // 获取设备信息
-                IntPtr pTargetInfo = Marshal.UnsafeAddrOfPinnedArrayElement(finalDeviceList.pDeviceInfo, targetIndex);
-                MyCamera.MV_CC_DEVICE_INFO deviceInfoForCreate = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
-                    pTargetInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
-
                 // 创建相机
                 AddLog("正在创建设备...");
-                int nRet = _camera.MV_CC_CreateDevice_NET(ref deviceInfoForCreate);
-                if (nRet != 0)
+                int createRet = _camera.MV_CC_CreateDevice_NET(ref targetDevice);
+                if (createRet != 0)
                 {
-                    AddLog($"创建设备失败，错误码: {nRet}");
+                    AddLog($"创建设备失败，错误码: {createRet}");
                     return;
                 }
 
                 // 打开设备
                 AddLog("正在打开设备...");
-                nRet = _camera.MV_CC_OpenDevice_NET(MyCamera.MV_ACCESS_Exclusive, 0);
-                if (nRet != 0)
+                int openRet = _camera.MV_CC_OpenDevice_NET(MyCamera.MV_ACCESS_Exclusive, 0);
+                if (openRet != 0)
                 {
-                    AddLog($"打开设备失败，错误码: {nRet}");
+                    AddLog($"打开设备失败，错误码: {openRet}");
                     _camera.MV_CC_DestroyDevice_NET();
                     return;
                 }
@@ -229,24 +198,59 @@ namespace WpfApp1
             }
         }
 
-        // 获取设备序列号
-        private string GetDeviceSerialNo(MyCamera.MV_CC_DEVICE_INFO deviceInfo)
+        // 从IntPtr获取设备序列号
+        private string GetDeviceSerialNoFromPtr(IntPtr pInfo, uint deviceType)
         {
             try
             {
-                // 尝试从GigE设备信息获取
-                if (deviceInfo.nDeviceType == MyCamera.MV_GIGE_DEVICE)
+                // 序列号在结构体中的偏移位置（大约在偏移40字节处）
+                // GigE设备的序列号在 stGigEInfo.chSerialNo (偏移大约 96)
+                // USB设备的序列号在 stUsb3VInfo.chSerialNo (偏移大约 48)
+                IntPtr snPtr;
+                
+                if (deviceType == MyCamera.MV_GIGE_DEVICE)
                 {
-                    return System.Text.Encoding.ASCII.GetString(deviceInfo.SpecialInfo.stGigEInfo.chSerialNo).TrimEnd('\0');
+                    // GigE: 序列号在 stGigEInfo 结构中
+                    // 先获取 stGigEInfo 的偏移
+                    int gigEInfoOffset = GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO), "SpecialInfo") + 
+                                          GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO), "stGigEInfo");
+                    int serialNoOffset = gigEInfoOffset + GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO.stGigEInfo_t), "chSerialNo");
+                    snPtr = new IntPtr(pInfo.ToInt64() + serialNoOffset);
                 }
-                // 尝试从USB设备信息获取
-                else if (deviceInfo.nDeviceType == MyCamera.MV_USB_DEVICE)
+                else
                 {
-                    return System.Text.Encoding.ASCII.GetString(deviceInfo.SpecialInfo.stUsb3VInfo.chSerialNo).TrimEnd('\0');
+                    // USB: 序列号在 stUsb3VInfo 结构中
+                    int usbInfoOffset = GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO), "SpecialInfo") + 
+                                        GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO), "stUsb3VInfo");
+                    int serialNoOffset = usbInfoOffset + GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO.stUsb3VInfo_t), "chSerialNo");
+                    snPtr = new IntPtr(pInfo.ToInt64() + serialNoOffset);
+                }
+                
+                // 读取字节数组
+                byte[] snBytes = new byte[32];
+                Marshal.Copy(snPtr, snBytes, 0, 32);
+                return System.Text.Encoding.ASCII.GetString(snBytes).TrimEnd('\0').Trim();
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        // 获取结构体字段的偏移量
+        private int GetFieldOffset(Type type, string fieldName)
+        {
+            try
+            {
+                var field = type.GetField(fieldName);
+                if (field != null)
+                {
+                    // 使用Marshal.OffsetOf获取偏移
+                    return Marshal.OffsetOf(type, fieldName).ToInt32();
                 }
             }
             catch { }
-            return "";
+            return 0;
         }
 
         // 断开相机
