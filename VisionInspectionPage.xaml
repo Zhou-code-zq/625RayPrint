@@ -7,7 +7,7 @@
              d:DesignHeight="700" d:DesignWidth="1200"
              Background="#1E1E2E"
              Loaded="VisionInspectionPage_Loaded"
-             Unloaded="VisionInspectionPage_Unloaded">>
+             Unloaded="VisionInspectionPage_Unloaded">
     
     <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -52,7 +52,7 @@
                     <!-- 连接状态 -->
                     <TextBlock x:Name="StatusText" Text="状态: 未连接" Foreground="#FF6B6B" Margin="0,0,0,10"/>
                     
-                    <!-- 连接状态 -->
+                    <!-- 相机信息 -->
                     <TextBlock x:Name="CameraInfoText" Text="相机信息: --" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,0,0,10"/>
                     
                     <!-- IP显示 -->
@@ -73,7 +73,7 @@
                     <TextBlock x:Name="FpsText" Text="帧率: 0 FPS" Foreground="#4ECDC4" FontSize="16" Margin="0,0,0,15"/>
                     
                     <!-- 操作按钮 -->
-                    <Button x:Name="CameraConnectButton" Content="连接相机" Click="CameraConnectButton_Click" 
+                    <Button x:Name="CameraConnectButton" Content="连接相机" Click="ConnectCamera_Click" 
                             Height="40" Margin="0,5" Background="#4ECDC4" Foreground="White" FontWeight="Bold"/>
                 </StackPanel>
             </Border>
@@ -96,9 +96,6 @@
                 <TextBox x:Name="LogTextBox" Grid.Row="1" IsReadOnly="True" Background="#1E1E2E" 
                          Foreground="#4ECDC4" FontFamily="Consolas" AcceptsReturn="True" 
                          VerticalScrollBarVisibility="Auto" Margin="0,5,0,0"/>
-                <ScrollViewer x:Name="LogScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,5,0,0">
-                    <TextBlock x:Name="LogText" Text="" Foreground="#CCCCCC" TextWrapping="Wrap" FontFamily="Consolas"/>
-                </ScrollViewer>
             </Grid>
         </Border>
     </Grid>

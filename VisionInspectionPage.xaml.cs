@@ -126,8 +126,31 @@ namespace WpfApp1
         private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
         {
             // 停止采集并关闭相机
-            StopGrabbing();
-            CloseCamera();
+            StopCamera();
+        }
+
+        // 停止相机
+        private void StopCamera()
+        {
+            try
+            {
+                if (m_bGrabbing)
+                {
+                    m_pCamera.MV_CC_StopGrabbing_NET();
+                    m_bGrabbing = false;
+                }
+                if (m_CamOpenSuccess)
+                {
+                    m_pCamera.MV_CC_CloseDevice_NET();
+                    m_pCamera.MV_CC_DestroyDevice_NET();
+                    m_CamOpenSuccess = false;
+                }
+                AddLog("相机已停止");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"停止相机异常: {ex.Message}");
+            }
         }
 
         // 连接相机
