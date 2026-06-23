@@ -63,17 +63,23 @@ namespace WpfApp1
                     return;
                 }
                 
-                AddLog("发现 " + _deviceList.nDeviceNum + " 个设备");
+                string deviceInfo = "发现 " + _deviceList.nDeviceNum + " 个设备";
+                AddLog(deviceInfo);
                 
-                // 获取第一个设备的信息
-                IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(_deviceList.pDeviceInfo, 0);
-                MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                // 创建设备并打开
+                nRet = _camera.MV_CC_CreateDevice_NET(ref _deviceList);
+                if (nRet != MyCamera.MV_OK)
+                {
+                    AddLog("创建设备失败，错误码: " + nRet);
+                    return;
+                }
                 
                 // 打开设备
                 nRet = _camera.MV_CC_OpenDevice_NET(MyCamera.MV_ACCESS_Exclusive, 0);
                 if (nRet != MyCamera.MV_OK)
                 {
                     AddLog("打开设备失败，错误码: " + nRet);
+                    _camera.MV_CC_DestroyDevice_NET();
                     MessageBox.Show("打开设备失败，错误码: " + nRet, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
@@ -86,24 +92,8 @@ namespace WpfApp1
                 {
                     ConnectionStatusText.Text = "状态: 已连接";
                     ConnectionStatusText.Foreground = new SolidColorBrush(Color.FromRgb(78, 205, 196));
-                    
-                    // 显示设备信息
-                    if (deviceInfo.nDeviceType == MyCamera.MV_GIGE_DEVICE)
-                    {
-                        string ip = string.Format("{0}.{1}.{2}.{3}", 
-                            deviceInfo.SpecialInfo.stGigEInfo.nCurrentIp & 0xFF,
-                            (deviceInfo.SpecialInfo.stGigEInfo.nCurrentIp >> 8) & 0xFF,
-                            (deviceInfo.SpecialInfo.stGigEInfo.nCurrentIp >> 16) & 0xFF,
-                            (deviceInfo.SpecialInfo.stGigEInfo.nCurrentIp >> 24) & 0xFF);
-                        CameraInfoText.Text = "GigE相机 - " + deviceInfo.SpecialInfo.stGigEInfo.chManufacturerName;
-                        IpText.Text = "IP: " + ip;
-                    }
-                    else if (deviceInfo.nDeviceType == MyCamera.MV_USB_DEVICE)
-                    {
-                        CameraInfoText.Text = "USB相机";
-                        IpText.Text = "序列号: " + deviceInfo.SpecialInfo.stUsb3VInfo.chSerialNumber;
-                    }
-                    
+                    CameraInfoText.Text = "相机信息: 已连接";
+                    IpText.Text = "设备数: " + _deviceList.nDeviceNum;
                     UpdateButtonState();
                 }));
             }
@@ -195,23 +185,32 @@ namespace WpfApp1
                 // 在UI线程更新显示
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    // 创建BitmapSource
-                    BitmapSource bitmapSource = BitmapSource.Create(
-                        (int)frameOut.nWidth,
-                        (int)frameOut.nHeight,
-                        96, 96,
-                        PixelFormats.Bgr24,
-                        null,
-                        frameOut.pBufAddr,
-                        (int)frameOut.nWidth * (int)frameOut.nHeight * 3,
-                        (int)frameOut.nWidth * 3);
+                    // 获取图像参数
+                    int nWidth = (int)frameOut.nWidth;
+                    int nHeight = (int)frameOut.nHeight;
+                    IntPtr pBufAddr = frameOut.pBufAddr;
                     
-                    bitmapSource.Freeze();
-                    CameraImage.Source = bitmapSource;
+                    if (nWidth > 0 && nHeight > 0 && pBufAddr != IntPtr.Zero)
+                    {
+                        // 创建BitmapSource
+                        BitmapSource bitmapSource = BitmapSource.Create(
+                            nWidth,
+                            nHeight,
+                            96, 96,
+                            PixelFormats.Bgr24,
+                            null,
+                            pBufAddr,
+                            nWidth * nHeight * 3,
+                            nWidth * 3);
+                        
+                        bitmapSource.Freeze();
+                        CameraImage.Source = bitmapSource;
+                    }
                     
                     // 更新统计
                     FrameCountText.Text = "帧数: " + _frameCount;
                     FpsText.Text = "帧率: " + _currentFps.ToString("F1") + " FPS";
+                    FpsText.Text = "FPS: " + _currentFps.ToString("F1");
                 }));
             }
             catch (Exception ex)
@@ -283,6 +282,7 @@ namespace WpfApp1
                 if (_camera != null && _isConnected)
                 {
                     _camera.MV_CC_CloseDevice_NET();
+                    _camera.MV_CC_DestroyDevice_NET();
                     _isConnected = false;
                     AddLog("相机已断开");
                 }
