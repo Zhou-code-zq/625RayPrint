@@ -42,12 +42,12 @@ namespace WpfApp1
             try
             {
                 // 复制参数值，因为lambda中不能使用ref参数
-                int nWidth = pFrameInfo.nWidth;
-                int nHeight = pFrameInfo.nHeight;
-                int nFrameLen = pFrameInfo.nFrameLen;
-                IntPtr imageBaseAddr = pFrameInfo.pImageAddr;
+                int nWidth = (int)pFrameInfo.nWidth;
+                int nHeight = (int)pFrameInfo.nHeight;
+                int nFrameLen = (int)pFrameInfo.nFrameLen;
+                IntPtr imageBaseAddr = pData; // pData就是图像数据指针
 
-                this.Dispatcher.Invoke(() =>
+                Application.Current.Dispatcher.Invoke(() =>
                 {
                     // 显示图像
                     DisplayImage(pData, nWidth, nHeight, nFrameLen, imageBaseAddr);
@@ -244,7 +244,7 @@ namespace WpfApp1
             AddLog("开始采集...");
 
             // 更新UI
-            this.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 CameraConnectButton.Content = "断开相机";
                 StatusText.Text = "相机已连接";
@@ -274,7 +274,7 @@ namespace WpfApp1
                     AddLog("相机已断开");
                 }
 
-                this.Dispatcher.Invoke(() =>
+                Application.Current.Dispatcher.Invoke(() =>
                 {
                     CameraConnectButton.Content = "连接相机";
                     StatusText.Text = "相机未连接";
@@ -345,7 +345,7 @@ namespace WpfApp1
         // 添加日志
         private void AddLog(string message)
         {
-            this.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 string log = $"[{DateTime.Now:HH:mm:ss}] {message}";
                 LogTextBox.AppendText(log + "\n");
