@@ -166,9 +166,13 @@ namespace WpfApp1
                 int targetIndex = 0;
                 AddLog($"使用第 {targetIndex + 1} 个设备");
 
+                // 获取设备信息
+                MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(
+                    Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, targetIndex),
+                    typeof(MyCamera.MV_CC_DEVICE_INFO));
+
                 // 创建相机
-                IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(deviceList.pDeviceInfo, targetIndex);
-                nRet = _camera.MV_CC_CreateDevice_NET(pDeviceInfo);
+                nRet = _camera.MV_CC_CreateDevice_NET(ref deviceInfo);
                 if (nRet != 0)
                 {
                     AddLog($"创建设备失败，错误码: {nRet}");
