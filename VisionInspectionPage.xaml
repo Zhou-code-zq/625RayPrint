@@ -73,8 +73,14 @@
                     <TextBlock x:Name="FpsText" Text="帧率: 0 FPS" Foreground="#4ECDC4" FontSize="16" Margin="0,0,0,15"/>
                     
                     <!-- 操作按钮 -->
-                    <Button x:Name="CameraConnectButton" Content="连接相机" Click="ConnectCamera_Click" 
+                    <Button x:Name="CameraConnectButton" Content="连接相机" Click="CameraConnectButton_Click"
                             Height="40" Margin="0,5" Background="#4ECDC4" Foreground="White" FontWeight="Bold"/>
+                    <Button x:Name="StartGrabButton" Content="开始采集" Click="StartGrabButton_Click" IsEnabled="False"
+                            Height="40" Margin="0,5" Background="#4ECDC4" Foreground="White" FontWeight="Bold"/>
+                    <Button x:Name="StopGrabButton" Content="停止采集" Click="StopGrabButton_Click" IsEnabled="False"
+                            Height="40" Margin="0,5" Background="#FF6B6B" Foreground="White" FontWeight="Bold"/>
+                    <Button x:Name="CaptureButton" Content="保存图像" Click="CaptureButton_Click" IsEnabled="False"
+                            Height="40" Margin="0,5" Background="#FFE66D" Foreground="Black" FontWeight="Bold"/>
                 </StackPanel>
             </Border>
         </Grid>

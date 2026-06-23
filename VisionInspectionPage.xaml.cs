@@ -53,7 +53,10 @@ namespace WpfApp1
                     DisplayImage(pData, nWidth, nHeight, nFrameLen, imageBaseAddr);
                     
                     // 更新帧计数
-                    FrameCountText.Text = (int.Parse(FrameCountText.Text) + 1).ToString();
+                    if (int.TryParse(FrameCountText.Text.Replace("帧数: ", ""), out int count))
+                    {
+                        FrameCountText.Text = $"帧数: {count + 1}";
+                    }
                 });
             }
             catch (Exception ex)
@@ -286,6 +289,9 @@ namespace WpfApp1
                 CameraConnectButton.Content = "断开相机";
                 StatusText.Text = "相机已连接";
                 StatusText.Foreground = Brushes.Green;
+                StartGrabButton.IsEnabled = false;
+                StopGrabButton.IsEnabled = true;
+                CaptureButton.IsEnabled = true;
             });
         }
 
@@ -316,6 +322,9 @@ namespace WpfApp1
                     CameraConnectButton.Content = "连接相机";
                     StatusText.Text = "相机未连接";
                     StatusText.Foreground = Brushes.Red;
+                    StartGrabButton.IsEnabled = false;
+                    StopGrabButton.IsEnabled = false;
+                    CaptureButton.IsEnabled = false;
                 });
             }
             catch (Exception ex)
@@ -334,6 +343,65 @@ namespace WpfApp1
             else
             {
                 ConnectCamera_Click(sender, e);
+            }
+        }
+
+        // 开始采集
+        private void StartGrabButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!m_CamOpenSuccess)
+            {
+                AddLog("请先连接相机");
+                return;
+            }
+
+            try
+            {
+                int nRet = m_pCamera.MV_CC_StartGrabbing_NET();
+                if (nRet == MyCamera.MV_OK)
+                {
+                    m_bGrabbing = true;
+                    StartGrabButton.IsEnabled = false;
+                    StopGrabButton.IsEnabled = true;
+                    AddLog("开始采集成功");
+                }
+                else
+                {
+                    AddLog($"开始采集失败，错误码: 0x{nRet:X8}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"开始采集异常: {ex.Message}");
+            }
+        }
+
+        // 停止采集
+        private void StopGrabButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!m_bGrabbing)
+            {
+                return;
+            }
+
+            try
+            {
+                int nRet = m_pCamera.MV_CC_StopGrabbing_NET();
+                if (nRet == MyCamera.MV_OK)
+                {
+                    m_bGrabbing = false;
+                    StartGrabButton.IsEnabled = true;
+                    StopGrabButton.IsEnabled = false;
+                    AddLog("停止采集成功");
+                }
+                else
+                {
+                    AddLog($"停止采集失败，错误码: 0x{nRet:X8}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"停止采集异常: {ex.Message}");
             }
         }
 
