@@ -23,15 +23,11 @@ namespace WpfApp1
         private string m_strCameraSerial = "";
         private uint m_nDeviceType = 0;
 
-        // 回调委托
-        private MyCamera.cbOutputdelegate m_ImageCallback;
-
         public VisionInspectionPage()
         {
             InitializeComponent();
         }
 
-        // 设置相机配置
         public void SetCameraConfig(string serialNo, uint deviceType)
         {
             m_strCameraSerial = serialNo;
@@ -60,7 +56,6 @@ namespace WpfApp1
 
                 AddLog($"发现 {m_pDeviceList.nDeviceNum} 个设备");
 
-                // 查找目标设备
                 if (m_pDeviceList.nDeviceNum == 0)
                 {
                     AddLog("未发现任何设备");
@@ -68,6 +63,7 @@ namespace WpfApp1
                 }
 
                 IntPtr pDeviceInfo = IntPtr.Zero;
+                MyCamera.MV_CC_DEVICE_INFO targetDevice = new MyCamera.MV_CC_DEVICE_INFO();
                 bool bFound = false;
 
                 for (uint i = 0; i < m_pDeviceList.nDeviceNum; i++)
@@ -75,7 +71,6 @@ namespace WpfApp1
                     pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(m_pDeviceList.pDeviceInfo, (int)i);
                     MyCamera.MV_CC_DEVICE_INFO device = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
 
-                    // 获取序列号
                     string strSerial = "";
                     if (device.nTLayerType == MyCamera.MV_GIGE_DEVICE)
                     {
@@ -92,24 +87,21 @@ namespace WpfApp1
 
                     AddLog($"设备 {i}: 类型={device.nTLayerType}, 序列号={strSerial}");
 
-                    // 匹配序列号
                     if (!string.IsNullOrEmpty(m_strCameraSerial) && strSerial == m_strCameraSerial)
                     {
+                        targetDevice = device;
                         bFound = true;
                         AddLog($"找到目标相机: {strSerial}");
                         break;
                     }
                 }
 
-                // 如果没有配置序列号，使用第一个设备
-                if (!bFound)
+                if (!bFound && m_pDeviceList.nDeviceNum > 0)
                 {
-                    if (m_pDeviceList.nDeviceNum > 0)
-                    {
-                        pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(m_pDeviceList.pDeviceInfo, 0);
-                        bFound = true;
-                        AddLog("使用第一个可用设备");
-                    }
+                    pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(m_pDeviceList.pDeviceInfo, 0);
+                    targetDevice = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                    bFound = true;
+                    AddLog("使用第一个可用设备");
                 }
 
                 if (!bFound)
@@ -120,7 +112,7 @@ namespace WpfApp1
 
                 // 创建设备
                 m_pCamera = new MyCamera();
-                nRet = m_pCamera.MV_CC_CreateDevice_NET(ref device);
+                nRet = m_pCamera.MV_CC_CreateDevice_NET(ref targetDevice);
                 if (MyCamera.MV_OK != nRet)
                 {
                     AddLog($"创建设备失败! nRet = 0x{nRet:X}");
@@ -162,7 +154,6 @@ namespace WpfApp1
 
             try
             {
-                // 开始采集
                 int nRet = m_pCamera.MV_CC_StartGrabbing_NET();
                 if (MyCamera.MV_OK != nRet)
                 {
@@ -179,7 +170,6 @@ namespace WpfApp1
                     StopGrabButton.IsEnabled = true;
                 });
 
-                // 创建接收线程
                 m_hReceiveThread = new Thread(ReceiveThread);
                 m_hReceiveThread.Start();
                 m_hReceiveThreadStarted.WaitOne();
@@ -198,13 +188,11 @@ namespace WpfApp1
             {
                 m_bGrabbing = false;
 
-                // 停止采集
                 if (m_pCamera != null)
                 {
                     m_pCamera.MV_CC_StopGrabbing_NET();
                 }
 
-                // 等待线程结束
                 if (m_hReceiveThread != null && m_hReceiveThread.IsAlive)
                 {
                     m_hReceiveThread.Join(1000);
@@ -234,18 +222,19 @@ namespace WpfApp1
 
             lock (m_lockObj)
             {
-                // 抓取一帧
                 MyCamera.MV_FRAME_OUT stFrameOut = new MyCamera.MV_FRAME_OUT();
                 int nRet = m_pCamera.MV_CC_GetImageBuffer_NET(ref stFrameOut, 1000);
                 if (nRet == MyCamera.MV_OK)
                 {
-                    // 保存图像
                     string strPath = Directory.GetCurrentDirectory() + $"\\Images\\{DateTime.Now:yyyyMMdd_HHmmss_fff}.bmp";
                     Directory.CreateDirectory(Path.GetDirectoryName(strPath));
 
-                    nRet = m_pCamera.MV_CC_SaveImageToFile_NET(stFrameOut.pImageAddr, (uint)stFrameOut.stFrameInfo.nWidth,
-                        (uint)stFrameOut.stFrameInfo.nHeight, (uint)stFrameOut.stFrameInfo.nFrameLen,
-                        MyCamera.MvGvspPixelType.PixelType_Gvsp_RAW8, strPath);
+                    uint nWidth = stFrameOut.stFrameInfo.nWidth;
+                    uint nHeight = stFrameOut.stFrameInfo.nHeight;
+                    uint nFrameLen = stFrameOut.stFrameInfo.nFrameLen;
+                    MyCamera.MvGvspPixelType enPixelType = stFrameOut.stFrameInfo.enPixelType;
+
+                    nRet = m_pCamera.MV_CC_SaveImageToFile_NET(stFrameOut.stFrameOut.pImageAddr, nWidth, nHeight, nFrameLen, enPixelType, strPath);
 
                     if (MyCamera.MV_OK == nRet)
                     {
@@ -256,7 +245,6 @@ namespace WpfApp1
                         AddLog($"保存图像失败! nRet = 0x{nRet:X}");
                     }
 
-                    // 释放缓存
                     m_pCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
                 }
                 else
@@ -276,7 +264,6 @@ namespace WpfApp1
             m_hReceiveThreadStarted.Set();
 
             MyCamera.MV_FRAME_OUT stFrameOut = new MyCamera.MV_FRAME_OUT();
-            MyCamera.MV_FRAME_OUT_INFO stFrameInfo = new MyCamera.MV_FRAME_OUT_INFO();
 
             while (m_bGrabbing)
             {
@@ -285,31 +272,32 @@ namespace WpfApp1
                     int nRet = m_pCamera.MV_CC_GetImageBuffer_NET(ref stFrameOut, 1000);
                     if (nRet == MyCamera.MV_OK)
                     {
-                        stFrameInfo = stFrameOut.stFrameInfo;
                         m_nFrameCount++;
+
+                        uint nWidth = stFrameOut.stFrameInfo.nWidth;
+                        uint nHeight = stFrameOut.stFrameInfo.nHeight;
+                        IntPtr pImageAddr = stFrameOut.stFrameOut.pImageAddr;
 
                         Dispatcher.Invoke(() =>
                         {
                             FrameCountText.Text = $"帧数: {m_nFrameCount}";
 
-                            // 转换图像并显示
-                            if (stFrameOut.pImageAddr != IntPtr.Zero)
+                            if (pImageAddr != IntPtr.Zero)
                             {
                                 try
                                 {
-                                    int nWidth = (int)stFrameInfo.nWidth;
-                                    int nHeight = (int)stFrameInfo.nHeight;
+                                    int width = (int)nWidth;
+                                    int height = (int)nHeight;
 
                                     BitmapSource bitmap = BitmapSource.Create(
-                                        nWidth, nHeight, 96, 96,
+                                        width, height, 96, 96,
                                         PixelFormats.Gray8, null,
-                                        stFrameOut.pImageAddr, nWidth * nHeight, nWidth);
+                                        pImageAddr, width * height, width);
 
                                     CameraDisplay.Source = bitmap;
                                 }
                                 catch
                                 {
-                                    // 转换失败忽略
                                 }
                             }
                         });
@@ -319,7 +307,6 @@ namespace WpfApp1
                 }
                 catch
                 {
-                    // 异常忽略
                 }
 
                 Thread.Sleep(10);
@@ -336,9 +323,8 @@ namespace WpfApp1
             });
         }
 
-        private void UserControl_Unloaded(object sender, RoutedEventArgs e)
+        private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
         {
-            // 停止采集
             if (m_bGrabbing)
             {
                 m_bGrabbing = false;
@@ -348,7 +334,6 @@ namespace WpfApp1
                 }
             }
 
-            // 关闭设备
             if (m_pCamera != null)
             {
                 m_pCamera.MV_CC_StopGrabbing_NET();
