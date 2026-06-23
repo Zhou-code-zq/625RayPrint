@@ -203,28 +203,12 @@ namespace WpfApp1
         {
             try
             {
-                // 序列号在结构体中的偏移位置（大约在偏移40字节处）
-                // GigE设备的序列号在 stGigEInfo.chSerialNo (偏移大约 96)
-                // USB设备的序列号在 stUsb3VInfo.chSerialNo (偏移大约 48)
-                IntPtr snPtr;
-                
-                if (deviceType == MyCamera.MV_GIGE_DEVICE)
-                {
-                    // GigE: 序列号在 stGigEInfo 结构中
-                    // 先获取 stGigEInfo 的偏移
-                    int gigEInfoOffset = GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO), "SpecialInfo") + 
-                                          GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO), "stGigEInfo");
-                    int serialNoOffset = gigEInfoOffset + GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO.stGigEInfo_t), "chSerialNo");
-                    snPtr = new IntPtr(pInfo.ToInt64() + serialNoOffset);
-                }
-                else
-                {
-                    // USB: 序列号在 stUsb3VInfo 结构中
-                    int usbInfoOffset = GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO), "SpecialInfo") + 
-                                        GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO), "stUsb3VInfo");
-                    int serialNoOffset = usbInfoOffset + GetFieldOffset(typeof(MyCamera.MV_CC_DEVICE_INFO.SPECIAL_INFO.stUsb3VInfo_t), "chSerialNo");
-                    snPtr = new IntPtr(pInfo.ToInt64() + serialNoOffset);
-                }
+                // 使用固定偏移量读取序列号
+                // MV_CC_DEVICE_INFO 结构中序列号的位置大约在 96-128 字节处
+                // stGigEInfo.chSerialNo 偏移约 96
+                // stUsb3VInfo.chSerialNo 偏移约 48
+                int serialNoOffset = (deviceType == MyCamera.MV_GIGE_DEVICE) ? 96 : 48;
+                IntPtr snPtr = new IntPtr(pInfo.ToInt64() + serialNoOffset);
                 
                 // 读取字节数组
                 byte[] snBytes = new byte[32];
@@ -237,7 +221,7 @@ namespace WpfApp1
             }
         }
 
-        // 获取结构体字段的偏移量
+        // 获取结构体字段的偏移量（备用）
         private int GetFieldOffset(Type type, string fieldName)
         {
             try
@@ -245,7 +229,6 @@ namespace WpfApp1
                 var field = type.GetField(fieldName);
                 if (field != null)
                 {
-                    // 使用Marshal.OffsetOf获取偏移
                     return Marshal.OffsetOf(type, fieldName).ToInt32();
                 }
             }
