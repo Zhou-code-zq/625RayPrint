@@ -5,58 +5,62 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"
       mc:Ignorable="d"
-      d:DesignHeight="800" d:DesignWidth="1200"
+      d:DesignHeight="600" d:DesignWidth="800"
       Title="VisionInspectionPage"
       Loaded="VisionInspectionPage_Loaded"
       Unloaded="VisionInspectionPage_Unloaded">
-    <Grid Background="#1A1A2E">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="60"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="200"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部工具栏 -->
-        <Border Grid.Row="0" Background="#16213E" BorderBrush="#0F3460" BorderThickness="0,0,0,1">
-            <Grid Margin="15,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="StartCameraButton" Content="开始采集" Width="100" Height="36"
-                            Background="#0F3460" Foreground="White" BorderThickness="0"
-                            FontSize="14" FontWeight="SemiBold" Cursor="Hand"
-                            Click="StartCameraButton_Click" Margin="0,0,10,0"/>
-                    <Button x:Name="StopCameraButton" Content="停止采集" Width="100" Height="36"
-                            Background="#533483" Foreground="White" BorderThickness="0"
-                            FontSize="14" FontWeight="SemiBold" Cursor="Hand" IsEnabled="False"
-                            Click="StopCameraButton_Click" Margin="0,0,10,0"/>
-                    <Button x:Name="SaveImageButton" Content="保存图像" Width="100" Height="36"
-                            Background="#0F3460" Foreground="White" BorderThickness="0"
-                            FontSize="14" FontWeight="SemiBold" Cursor="Hand" IsEnabled="False"
-                            Click="SaveImageButton_Click" Margin="0,0,10,0"/>
-                    <Button x:Name="ClearLogButton" Content="清除日志" Width="100" Height="36"
-                            Background="#0F3460" Foreground="White" BorderThickness="0"
-                            FontSize="14" FontWeight="SemiBold" Cursor="Hand"
+        <!-- 相机图像显示区域 - 使用WinForms PictureBox通过WindowsFormsHost -->
+        <Border Grid.Row="0" Background="Black" Margin="5">
+            <WindowsFormsHost x:Name="CameraDisplayHost">
+                <wf:PictureBox x:Name="CameraPictureBox" Dock="Fill" 
+                               SizeMode="StretchImage" BackColor="Black"/>
+            </WindowsFormsHost>
+        </Border>
+
+        <!-- 底部控制栏 -->
+        <Border Grid.Row="1" Background="#F0F0F0" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Grid.Column="0" Margin="0,0,10,0">
+                    <Button x:Name="StartCameraButton" Content="开始采集" Width="80" Height="30"
+                            Click="StartCameraButton_Click" Margin="0,0,5,0"/>
+                    <Button x:Name="StopCameraButton" Content="停止采集" Width="80" Height="30"
+                            Click="StopCameraButton_Click" Margin="0,0,5,0"/>
+                    <Button x:Name="SaveImageButton" Content="保存图像" Width="80" Height="30"
+                            Click="SaveImageButton_Click" Margin="0,0,5,0"/>
+                    <Button x:Name="ClearLogButton" Content="清除日志" Width="80" Height="30"
                             Click="ClearLogButton_Click"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <TextBlock x:Name="FrameCountText" Text="帧数: 0" Foreground="#E94560"
-                               FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,20,0"/>
-                    <TextBlock x:Name="StatusText" Text="未连接" Foreground="#888888"
-                               FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                <StackPanel Orientation="Horizontal" Grid.Column="5">
+                    <TextBlock x:Name="StatusText" Text="未连接" VerticalAlignment="Center"
+                               Foreground="Gray" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="FrameCountText" Text="帧数: 0" VerticalAlignment="Center"
+                               Foreground="Gray"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- 相机显示区域 -->
-        <Border Grid.Row="1" Background="#0D0D1A" Margin="10">
-            <WindowsFormsHost x:Name="CameraDisplay" Margin="0"/>
-        </Border>
-
-        <!-- 底部日志区域 -->
-        <Border Grid.Row="2" Background="#16213E" BorderBrush="#0F3460" BorderThickness="0,1,0,0">
-            <TextBox x:Name="LogTextBox" Background="Transparent" Foreground="#AAAAAA"
-                     BorderThickness="0" IsReadOnly="True" FontFamily="Consolas"
-                     FontSize="12" VerticalScrollBarVisibility="Auto"
-                     TextWrapping="Wrap" Margin="10"/>
+        <!-- 日志区域 -->
+        <Border Grid.Row="0" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                Background="#80000000" Margin="5" Padding="5" MaxHeight="150" MaxWidth="400">
+            <TextBox x:Name="LogTextBox" IsReadOnly="True" Background="Transparent"
+                     Foreground="LightGreen" BorderThickness="0" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"/>
         </Border>
     </Grid>
 </Page>
