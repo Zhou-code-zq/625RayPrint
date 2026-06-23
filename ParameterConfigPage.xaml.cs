@@ -14,6 +14,11 @@ namespace WpfApp1
         // 参数：deviceType(设备类型0=MV系列,1=CA系列,2=CH系列), serialNo, ipAddress
         public event Action<int, string, string> ConfigSaved;
 
+        // 公共属性，供其他页面访问
+        public int DeviceType { get; private set; }
+        public string SerialNo { get; private set; }
+        public string IpAddress { get; private set; }
+
         public ParameterConfigPage()
         {
             InitializeComponent();
@@ -119,10 +124,15 @@ namespace WpfApp1
 
                 // 获取设备类型
                 int deviceType = DeviceTypeCombo.SelectedIndex;
-
-                // 触发保存事件
                 string serialNo = TxtSerialNo.Text.Trim();
                 string ipAddress = TxtIpAddress.Text.Trim();
+
+                // 更新公共属性
+                DeviceType = deviceType;
+                SerialNo = serialNo;
+                IpAddress = ipAddress;
+
+                // 触发保存事件
                 ConfigSaved?.Invoke(deviceType, serialNo, ipAddress);
 
                 MessageBox.Show("配置保存成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -208,6 +218,11 @@ namespace WpfApp1
                         }
                     }
                 }
+
+                // 更新公共属性
+                DeviceType = DeviceTypeCombo.SelectedIndex;
+                SerialNo = TxtSerialNo.Text.Trim();
+                IpAddress = TxtIpAddress.Text.Trim();
             }
             catch
             {

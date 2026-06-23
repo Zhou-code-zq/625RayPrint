@@ -54,6 +54,13 @@ namespace WpfApp1
             }
         }
 
+        // 获取参数配置页面实例
+        public static ParameterConfigPage GetConfigPage()
+        {
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            return mainWindow?._configPage;
+        }
+
         // 无边框窗口拖拽
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
