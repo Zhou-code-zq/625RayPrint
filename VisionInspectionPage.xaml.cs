@@ -115,10 +115,11 @@ namespace WpfApp1
             {
                 AddLog($"正在查找序列号为 {serialNo} 的相机...");
 
-                // 设备类型数组
+                // 设备类型数组 (包含 GenTL 虚拟相机)
                 uint[] deviceTypes = new uint[] { 
-                    MyCamera.MV_GIGE_DEVICE, 
-                    MyCamera.MV_USB_DEVICE 
+                    MyCamera.MV_GIGE_DEVICE,      // GigE
+                    MyCamera.MV_USB_DEVICE,       // USB
+                    0x00000004u                   // GenTL 虚拟相机
                 };
 
                 MyCamera.MV_CC_DEVICE_INFO targetDevice = new MyCamera.MV_CC_DEVICE_INFO();
@@ -134,7 +135,8 @@ namespace WpfApp1
                     if (enumRet != 0)
                         continue;
 
-                    string typeName = deviceType == MyCamera.MV_GIGE_DEVICE ? "GigE" : "USB";
+                    string typeName = deviceType == MyCamera.MV_GIGE_DEVICE ? "GigE" : 
+                                      deviceType == MyCamera.MV_USB_DEVICE ? "USB" : "GenTL";
                     AddLog($"检查 {typeName} 设备: 发现 {deviceList.nDeviceNum} 个");
 
                     for (int i = 0; i < deviceList.nDeviceNum; i++)
