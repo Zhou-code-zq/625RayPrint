@@ -47,11 +47,8 @@ namespace WpfApp1
 
         private void OnConfigSaved(string serialNo, string ipAddress)
         {
-            // 当参数配置保存时，更新质检与监控页面的相机信息
-            if (_visionPage != null)
-            {
-                _visionPage.SetCameraInfo(serialNo, ipAddress);
-            }
+            // 当参数配置保存时，日志会显示配置信息
+            // 海康相机SDK会自动枚举设备，无需手动设置
         }
 
         // 无边框窗口拖拽
