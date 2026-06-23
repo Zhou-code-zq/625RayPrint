@@ -60,14 +60,12 @@
                     
                     <!-- 曝光时间 -->
                     <TextBlock Text="曝光时间 (ms):" Foreground="White" Margin="0,0,0,5"/>
-                    <Slider x:Name="ExposureSlider" Minimum="1" Maximum="100" Value="20" 
-                            ValueChanged="ExposureSlider_ValueChanged"/>
+                    <Slider x:Name="ExposureSlider" Minimum="1" Maximum="100" Value="20"/>
                     <TextBlock x:Name="ExposureValueText" Text="20 ms" Foreground="#CCCCCC" Margin="0,0,0,15"/>
                     
                     <!-- 增益 -->
                     <TextBlock Text="增益 (dB):" Foreground="White" Margin="0,0,0,5"/>
-                    <Slider x:Name="GainSlider" Minimum="0" Maximum="20" Value="10" 
-                            ValueChanged="GainSlider_ValueChanged"/>
+                    <Slider x:Name="GainSlider" Minimum="0" Maximum="20" Value="10"/>
                     <TextBlock x:Name="GainValueText" Text="10 dB" Foreground="#CCCCCC" Margin="0,0,0,15"/>
                     
                     <!-- 帧数统计 -->

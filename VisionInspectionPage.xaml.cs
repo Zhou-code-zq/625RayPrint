@@ -96,6 +96,8 @@ namespace WpfApp1
         private WriteableBitmap _writeableBmp = null;
         private int _frameCount = 0;
         private DateTime _startTime;
+        private string _cameraIP = "";
+        private string _cameraSerial = "";
         
         // 模拟模式
         private bool _useSimulation = false;
@@ -408,10 +410,10 @@ namespace WpfApp1
                 string time = DateTime.Now.ToString("HH:mm:ss");
                 string logLine = "[" + time + "] " + message + "\n";
                 
-                Dispatcher.Invoke(new Action(() =>
+                Application.Current.Dispatcher.Invoke(new Action(() =>
                 {
                     LogText.Text += logLine;
-                    LogText.ScrollToEnd();
+                    LogScrollViewer.ScrollToEnd();
                 }));
             }
             catch
