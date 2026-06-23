@@ -54,7 +54,7 @@
   <!-- DLL路径: C:\Program Files (x86)\MVS\Development\DotNet\win64\net40\MvCamCtrl.NET.dll -->
   <ItemGroup>
     <Reference Include="MvCamCtrl.NET">
-      <HintPath>C:\Program Files (x86)\MVS\Development\DotNet\win64\net40\MvCamCtrl.NET.dll</HintPath>
+      <HintPath>$(ProgramFiles(x86))\MVS\Development\DotNet\win64\net40\MvCamCtrl.NET.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
