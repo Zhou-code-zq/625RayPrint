@@ -51,27 +51,79 @@ namespace WpfApp1
             try
             {
                 AddLog("正在枚举设备...");
+                _deviceList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
                 
-                // 枚举设备
-                int nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE | MyCamera.MV_USB_DEVICE, ref _deviceList);
-                if (nRet != MyCamera.MV_OK)
+                // 尝试多种设备类型
+                int nRet = -1;
+                uint totalDevices = 0;
+                
+                // GigE设备
+                MyCamera.MV_CC_DEVICE_INFO_LIST gigeList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_GIGE_DEVICE, ref gigeList);
+                if (nRet == MyCamera.MV_OK)
                 {
-                    AddLog("枚举设备失败，错误码: " + nRet);
-                    return;
+                    totalDevices += gigeList.nDeviceNum;
+                    AddLog("GigE 设备: " + gigeList.nDeviceNum);
                 }
                 
-                if (_deviceList.nDeviceNum == 0)
+                // USB设备
+                MyCamera.MV_CC_DEVICE_INFO_LIST usbList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                nRet = MyCamera.MV_CC_EnumDevices_NET(MyCamera.MV_USB_DEVICE, ref usbList);
+                if (nRet == MyCamera.MV_OK)
+                {
+                    totalDevices += usbList.nDeviceNum;
+                    AddLog("USB 设备: " + usbList.nDeviceNum);
+                }
+                
+                // GenTL设备（虚拟相机）- 类型值为6
+                MyCamera.MV_CC_DEVICE_INFO_LIST genTlList = new MyCamera.MV_CC_DEVICE_INFO_LIST();
+                nRet = MyCamera.MV_CC_EnumDevices_NET(6, ref genTlList); // 6 = GenTL
+                if (nRet == MyCamera.MV_OK)
+                {
+                    totalDevices += genTlList.nDeviceNum;
+                    AddLog("GenTL 设备: " + genTlList.nDeviceNum);
+                }
+                
+                if (totalDevices == 0)
                 {
                     AddLog("未发现任何相机设备！");
-                    MessageBox.Show("未发现任何相机设备，请检查相机连接。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("未发现任何相机设备。\n\n请确保：\n1. 已安装MVS并正确配置\n2. 已添加虚拟相机（在MVS菜单: 工具->虚拟相机)\n3. 虚拟相机已在MVS中打开", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
                 
-                AddLog("发现 " + _deviceList.nDeviceNum + " 个设备");
+                AddLog("共发现 " + totalDevices + " 个设备");
                 
-                // 获取第一个设备的Info
-                IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(_deviceList.pDeviceInfo, 0);
-                MyCamera.MV_CC_DEVICE_INFO deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                // 优先使用第一个非空列表
+                MyCamera.MV_CC_DEVICE_INFO deviceInfo = new MyCamera.MV_CC_DEVICE_INFO();
+                bool foundDevice = false;
+                
+                if (gigeList.nDeviceNum > 0)
+                {
+                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(gigeList.pDeviceInfo, 0);
+                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                    foundDevice = true;
+                    AddLog("使用 GigE 相机");
+                }
+                else if (usbList.nDeviceNum > 0)
+                {
+                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(usbList.pDeviceInfo, 0);
+                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                    foundDevice = true;
+                    AddLog("使用 USB 相机");
+                }
+                else if (genTlList.nDeviceNum > 0)
+                {
+                    IntPtr pDeviceInfo = Marshal.UnsafeAddrOfPinnedArrayElement(genTlList.pDeviceInfo, 0);
+                    deviceInfo = (MyCamera.MV_CC_DEVICE_INFO)Marshal.PtrToStructure(pDeviceInfo, typeof(MyCamera.MV_CC_DEVICE_INFO));
+                    foundDevice = true;
+                    AddLog("使用 GenTL 虚拟相机");
+                }
+                
+                if (!foundDevice)
+                {
+                    AddLog("无法获取设备信息");
+                    return;
+                }
                 
                 // 创建相机实例并打开设备
                 _camera = new MyCamera();
@@ -79,6 +131,7 @@ namespace WpfApp1
                 if (nRet != MyCamera.MV_OK)
                 {
                     AddLog("创建设备失败，错误码: " + nRet);
+                    MessageBox.Show("创建设备失败，错误码: " + nRet + "\n\n请检查虚拟相机是否已在MVS中打开", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
@@ -88,7 +141,7 @@ namespace WpfApp1
                 {
                     AddLog("打开设备失败，错误码: " + nRet);
                     _camera.MV_CC_DestroyDevice_NET();
-                    MessageBox.Show("打开设备失败，错误码: " + nRet, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("打开设备失败，错误码: " + nRet + "\n\n请检查：\n1. 虚拟相机是否已在MVS中打开\n2. 设备是否被其他程序占用", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
                 
@@ -116,7 +169,7 @@ namespace WpfApp1
                 }
                 catch (Exception ex)
                 {
-                    AddLog("获取分辨率失败，使用默认值: " + ex.Message);
+                    AddLog("获取分辨率失败: " + ex.Message);
                 }
                 
                 // 更新UI
@@ -157,6 +210,8 @@ namespace WpfApp1
                 
                 _isGrabbing = true;
                 _stopEvent.Reset();
+                _frameCount = 0;
+                _lastFrameTime = DateTime.Now;
                 
                 // 启动采集线程
                 _grabThread = new Thread(GrabThread);
@@ -184,14 +239,28 @@ namespace WpfApp1
         {
             MyCamera.MV_FRAME_OUT frameOut = new MyCamera.MV_FRAME_OUT();
             int nRet;
+            int consecutiveErrors = 0;
             
             while (!_stopEvent.WaitOne(10))
             {
                 nRet = _camera.MV_CC_GetImageBuffer_NET(ref frameOut, 1000);
                 if (nRet == MyCamera.MV_OK)
                 {
+                    consecutiveErrors = 0;
                     ProcessImage(frameOut);
                     _camera.MV_CC_FreeImageBuffer_NET(ref frameOut);
+                }
+                else
+                {
+                    consecutiveErrors++;
+                    if (consecutiveErrors > 100)
+                    {
+                        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            AddLog("采集超时，停止线程");
+                        }));
+                        break;
+                    }
                 }
             }
         }
@@ -211,17 +280,16 @@ namespace WpfApp1
                     _lastFrameTime = DateTime.Now;
                 }
                 
-                // 使用预设的分辨率
                 int nWidth = (int)_cameraWidth;
                 int nHeight = (int)_cameraHeight;
                 
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    IntPtr pBufAddr = frameOut.pBufAddr;
-                    
-                    if (pBufAddr != IntPtr.Zero && nWidth > 0 && nHeight > 0)
+                    try
                     {
-                        try
+                        IntPtr pBufAddr = frameOut.pBufAddr;
+                        
+                        if (pBufAddr != IntPtr.Zero && nWidth > 0 && nHeight > 0)
                         {
                             BitmapSource bitmapSource = BitmapSource.Create(
                                 nWidth,
@@ -236,7 +304,10 @@ namespace WpfApp1
                             bitmapSource.Freeze();
                             CameraImage.Source = bitmapSource;
                         }
-                        catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        AddLog("显示图像异常: " + ex.Message);
                     }
                     
                     FpsText.Text = "FPS: " + _currentFps.ToString("F1");
