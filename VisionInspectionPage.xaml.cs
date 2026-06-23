@@ -30,6 +30,7 @@ namespace WpfApp1
 
         // 预分配缓存（避免每帧分配）
         private byte[] m_pBufForSaveImage = null;
+        private byte[] m_pConvertBuf = null;       // 像素转换缓存
         private uint m_nBufSizeForSaveImage = 0;
 
         // 预分配转换缓存
@@ -39,8 +40,8 @@ namespace WpfApp1
         // 图片保存互斥锁
         private object m_SaveImageLock = new object();
 
-        // 回调委托（SDK 4.7.0 专用）
-        private MyCamera.cbOutputExdelegate m_cbImage;
+        // 回调委托（SDK 4.7.0: cbOutputdelegate）
+        private MyCamera.cbOutputdelegate m_cbImage;
 
         // 相机配置参数
         private static string s_strCameraSerial = "";
@@ -56,7 +57,7 @@ namespace WpfApp1
         {
             AppendLog("[视觉] 页面加载");
             // 获取 WindowsFormsHost 的句柄用于 Display_NET
-            if (CameraHost.Child is System.Windows.Forms.PictureBox pic)
+            if (CameraDisplayHost.Child is System.Windows.Forms.PictureBox pic)
             {
                 m_hWnd = pic.Handle;
             }
@@ -114,6 +115,7 @@ namespace WpfApp1
                 // 2. 按序列号匹配设备
                 IntPtr pDeviceInfo = IntPtr.Zero;
                 bool bFound = false;
+                MyCamera.MV_CC_DEVICE_INFO stDeviceInfo = new MyCamera.MV_CC_DEVICE_INFO();
 
                 for (int i = 0; i < stDeviceList.nDeviceNum; i++)
                 {
@@ -191,9 +193,9 @@ namespace WpfApp1
                     AppendLog($"[视觉] PayloadSize={stParam.nCurValue}，已分配缓存");
                 }
 
-                // 7. 注册图像回调（SDK 4.7.0: cbOutputExdelegate + RegisterImageCallBackEx_NET）
-                m_cbImage = new MyCamera.cbOutputExdelegate(OnGetImage);
-                nRet = m_pMyCamera.MV_CC_RegisterImageCallBackEx_NET(m_cbImage, IntPtr.Zero);
+                // 7. 注册图像回调（SDK 4.7.0: cbOutputdelegate）
+                m_cbImage = new MyCamera.cbOutputdelegate(OnGetImage);
+                nRet = m_pMyCamera.MV_CC_RegisterImageCallBack_NET(m_cbImage, IntPtr.Zero);
                 if (MyCamera.MV_OK != nRet)
                 {
                     AppendLog($"[视觉] 注册图像回调失败，错误码: 0x{nRet:X}");
@@ -268,11 +270,8 @@ namespace WpfApp1
             }
         }
 
-        // 图像回调（SDK 4.7.0: cbOutputExdelegate 签名）
-        // IntPtr pData: 图像数据地址
-        // ref MV_FRAME_OUT_INFO_EX: 帧信息（nWidth, nHeight, nFrameLen, enPixelType）
-        // IntPtr pUser: 用户数据
-        private void OnGetImage(IntPtr pData, ref MV_FRAME_OUT_INFO_EX pFrameInfo, IntPtr pUser)
+        // 图像回调（SDK 4.7.0: cbOutputdelegate 签名）
+        private void OnGetImage(IntPtr pData, ref MV_FRAME_OUT_INFO pFrameInfo, IntPtr pUser)
         {
             try
             {
@@ -308,29 +307,24 @@ namespace WpfApp1
             {
                 try
                 {
-                    // 获取当前帧
-                    MV_FRAME_OUT stFrameOut = new MV_FRAME_OUT();
-                    int nRet = m_pMyCamera.MV_CC_GetImageBuffer_NET(ref stFrameOut, 1000);
+                    // 使用 GetOneFrameTimeout 获取原始图像数据（byte[] 方式，避免结构体字段问题）
+                    if (m_pBufForSaveImage == null || m_pBufForSaveImage.Length < MAX_IMAGE_BUF_SIZE)
+                    {
+                        m_pBufForSaveImage = new byte[MAX_IMAGE_BUF_SIZE];
+                    }
+
+                    MV_FRAME_OUT_INFO stFrameInfo = new MV_FRAME_OUT_INFO();
+                    int nRet = m_pMyCamera.MV_CC_GetOneFrameTimeout_NET(m_pBufForSaveImage, MAX_IMAGE_BUF_SIZE, ref stFrameInfo, 1000);
                     if (nRet != MyCamera.MV_OK)
                     {
                         AppendLog($"[视觉] 取图失败，错误码: 0x{nRet:X}");
                         return;
                     }
 
-                    // 获取帧信息（SDK 4.7.0 用 stFrameOut.stFrameInfo）
-                    MV_FRAME_OUT_INFO_EX stFrameInfo = stFrameOut.stFrameInfo;
-                    IntPtr pData = stFrameOut.pImageAddr;
-                    uint nWidth = stFrameInfo.nWidth;
-                    uint nHeight = stFrameInfo.nHeight;
-                    uint nFrameLen = stFrameInfo.nFrameLen;
+                    int nWidth = (int)stFrameInfo.nWidth;
+                    int nHeight = (int)stFrameInfo.nHeight;
+                    int nFrameLen = (int)stFrameInfo.nFrameLen;
                     MyCamera.MvGvspPixelType enPixelType = stFrameInfo.enPixelType;
-
-                    if (pData == IntPtr.Zero || nFrameLen == 0)
-                    {
-                        m_pMyCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
-                        AppendLog("[视觉] 取图数据无效");
-                        return;
-                    }
 
                     // 确定保存路径
                     string saveDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Images");
@@ -340,125 +334,8 @@ namespace WpfApp1
                     string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
                     string bmpPath = System.IO.Path.Combine(saveDir, $"img_{timestamp}.bmp");
 
-                    // 预分配缓存
-                    uint nSaveBufSize = nFrameLen * 3 + 2048;
-                    if (m_pBufForSaveImage == null || m_pBufForSaveImage.Length < nSaveBufSize)
-                    {
-                        m_pBufForSaveImage = new byte[nSaveBufSize];
-                    }
-
-                    // 像素格式转换目标
-                    MyCamera.MvGvspPixelType enDstPixelType;
-                    System.Drawing.Imaging.PixelFormat fmt;
-
-                    if (IsMonoPixelFormat(enPixelType))
-                    {
-                        enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8;
-                        fmt = System.Drawing.Imaging.PixelFormat.Format8bppIndexed;
-                    }
-                    else
-                    {
-                        enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed;
-                        fmt = System.Drawing.Imaging.PixelFormat.Format24bppRgb;
-                    }
-
-                    // 转换像素格式
-                    IntPtr pDst = Marshal.UnsafeAddrOfPinnedArrayElement(m_pBufForSaveImage, 0);
-
-                    MyCamera.MV_PIXEL_CONVERT_PARAM stConvertParam = new MyCamera.MV_PIXEL_CONVERT_PARAM
-                    {
-                        nWidth = nWidth,
-                        nHeight = nHeight,
-                        pSrcData = pData,
-                        nSrcDataLen = nFrameLen,
-                        enSrcPixelType = enPixelType,
-                        enDstPixelType = enDstPixelType,
-                        pDstBuffer = pDst,
-                        nDstBufferSize = nSaveBufSize
-                    };
-
-                    nRet = m_pMyCamera.MV_CC_ConvertPixelType_NET(ref stConvertParam);
-
-                    // 释放缓存
-                    m_pMyCamera.MV_CC_FreeImageBuffer_NET(ref stFrameOut);
-
-                    if (nRet != MyCamera.MV_OK)
-                    {
-                        AppendLog($"[视觉] 像素转换失败，错误码: 0x{nRet:X}，尝试直接保存");
-                        // 直接复制原始数据尝试保存
-                        try
-                        {
-                            byte[] rawData = new byte[nFrameLen];
-                            Marshal.Copy(pData, rawData, 0, (int)nFrameLen);
-                            using (var fs = new FileStream(bmpPath, FileMode.Create))
-                            using (var bw = new BinaryWriter(fs))
-                            {
-                                // BMP 文件头
-                                int rowSize = (int)(nWidth * 3);
-                                int bmpSize = 54 + rowSize * (int)nHeight;
-                                bw.Write((short)0x4D42);        // BMP 标志
-                                bw.Write(bmpSize);             // 文件大小
-                                bw.Write(0);                    // 保留
-                                bw.Write(54);                   // 数据偏移
-                                // DIB 头
-                                bw.Write(40);                   // DIB 头大小
-                                bw.Write((int)nWidth);         // 宽度
-                                bw.Write((int)nHeight);        // 高度
-                                bw.Write((short)1);            // 颜色平面
-                                bw.Write((short)24);           // 位深
-                                bw.Write(0);                    // 压缩方式
-                                bw.Write(0);                   // 图像大小
-                                bw.Write(0);                   // X 像素/米
-                                bw.Write(0);                   // Y 像素/米
-                                bw.Write(0);                   // 调色板颜色数
-                                bw.Write(0);                   // 重要颜色数
-                                // 像素数据（倒置）
-                                for (int h = (int)nHeight - 1; h >= 0; h--)
-                                {
-                                    bw.Write(rawData, h * rowSize, rowSize);
-                                }
-                            }
-                            AppendLog($"[视觉] 原始数据已保存: {bmpPath}");
-                        }
-                        catch
-                        {
-                            AppendLog("[视觉] 保存失败");
-                        }
-                        return;
-                    }
-
-                    // 转换为 Bitmap 并保存
-                    Bitmap bmp;
-                    if (enDstPixelType == MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8)
-                    {
-                        bmp = new Bitmap((int)nWidth, (int)nHeight, (int)nWidth,
-                            System.Drawing.Imaging.PixelFormat.Format8bppIndexed, pDst);
-                        ColorPalette cp = bmp.Palette;
-                        for (int i = 0; i < 256; i++)
-                            cp.Entries[i] = System.Drawing.Color.FromArgb(i, i, i);
-                        bmp.Palette = cp;
-                    }
-                    else
-                    {
-                        // RGB → BGR 转换
-                        int stride = (int)nWidth * 3;
-                        for (int h = 0; h < (int)nHeight; h++)
-                        {
-                            for (int w = 0; w < (int)nWidth; w++)
-                            {
-                                int idx = h * stride + w * 3;
-                                byte tmp = m_pBufForSaveImage[idx];
-                                m_pBufForSaveImage[idx] = m_pBufForSaveImage[idx + 2];
-                                m_pBufForSaveImage[idx + 2] = tmp;
-                            }
-                        }
-                        bmp = new Bitmap((int)nWidth, (int)nHeight, stride,
-                            System.Drawing.Imaging.PixelFormat.Format24bppRgb, pDst);
-                    }
-
-                    bmp.Save(bmpPath, System.Drawing.Imaging.ImageFormat.Bmp);
-                    bmp.Dispose();
-
+                    // 直接写入 BMP 文件
+                    WriteBitmap(m_pBufForSaveImage, nWidth, nHeight, nFrameLen, enPixelType, bmpPath);
                     AppendLog($"[视觉] 图片已保存: {bmpPath}");
                 }
                 catch (Exception ex)
@@ -466,6 +343,118 @@ namespace WpfApp1
                     AppendLog($"[视觉] 保存异常: {ex.Message}");
                 }
             }
+        }
+
+        private void WriteBitmap(byte[] pData, int nWidth, int nHeight, int nFrameLen, MyCamera.MvGvspPixelType enPixelType, string bmpPath)
+        {
+            // 转换目标
+            MyCamera.MvGvspPixelType enDstPixelType;
+            System.Drawing.Imaging.PixelFormat fmt;
+            int bytesPerPixel;
+
+            if (IsMonoPixelFormat(enPixelType))
+            {
+                enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_Mono8;
+                fmt = System.Drawing.Imaging.PixelFormat.Format8bppIndexed;
+                bytesPerPixel = 1;
+            }
+            else
+            {
+                enDstPixelType = MyCamera.MvGvspPixelType.PixelType_Gvsp_RGB8_Packed;
+                fmt = System.Drawing.Imaging.PixelFormat.Format24bppRgb;
+                bytesPerPixel = 3;
+            }
+
+            // 像素转换缓存
+            int nDstBufSize = nWidth * nHeight * bytesPerPixel + 2048;
+            if (m_pConvertBuf == null || m_pConvertBuf.Length < nDstBufSize)
+            {
+                m_pConvertBuf = new byte[nDstBufSize];
+            }
+
+            IntPtr pSrc = Marshal.UnsafeAddrOfPinnedArrayElement(pData, 0);
+            IntPtr pDst = Marshal.UnsafeAddrOfPinnedArrayElement(m_pConvertBuf, 0);
+
+            MyCamera.MV_PIXEL_CONVERT_PARAM stConvertParam = new MyCamera.MV_PIXEL_CONVERT_PARAM
+            {
+                nWidth = (ushort)nWidth,
+                nHeight = (ushort)nHeight,
+                pSrcData = pSrc,
+                nSrcDataLen = nFrameLen,
+                enSrcPixelType = enPixelType,
+                enDstPixelType = enDstPixelType,
+                pDstBuffer = pDst,
+                nDstBufferSize = (uint)nDstBufSize
+            };
+
+            int nRet = m_pMyCamera.MV_CC_ConvertPixelType_NET(ref stConvertParam);
+            if (nRet != MyCamera.MV_OK)
+            {
+                // 转换失败，直接用原始数据写 BMP
+                WriteBitmapRaw(pData, nWidth, nHeight, enPixelType, bmpPath);
+                return;
+            }
+
+            Bitmap bmp;
+            if (bytesPerPixel == 1)
+            {
+                // Mono8: 灰度图
+                bmp = new Bitmap(nWidth, nHeight, nWidth, fmt, pDst);
+                ColorPalette cp = bmp.Palette;
+                for (int i = 0; i < 256; i++)
+                    cp.Entries[i] = System.Drawing.Color.FromArgb(i, i, i);
+                bmp.Palette = cp;
+            }
+            else
+            {
+                // RGB24: BGR→RGB 转换后写 BMP
+                int stride = nWidth * 3;
+                for (int h = 0; h < nHeight; h++)
+                {
+                    for (int w = 0; w < nWidth; w++)
+                    {
+                        int idx = h * stride + w * 3;
+                        byte tmp = m_pConvertBuf[idx];
+                        m_pConvertBuf[idx] = m_pConvertBuf[idx + 2];
+                        m_pConvertBuf[idx + 2] = tmp;
+                    }
+                }
+                bmp = new Bitmap(nWidth, nHeight, stride, fmt, pDst);
+            }
+
+            bmp.Save(bmpPath, System.Drawing.Imaging.ImageFormat.Bmp);
+            bmp.Dispose();
+        }
+
+        private void WriteBitmapRaw(byte[] pData, int nWidth, int nHeight, MyCamera.MvGvspPixelType enPixelType, string bmpPath)
+        {
+            // 兜底：原始数据直接写 BMP（适用于 Mono8 或已知格式）
+            int stride = ((nWidth * 24 + 31) / 32) * 4;
+            int bmpSize = 54 + stride * nHeight;
+            byte[] bmpData = new byte[bmpSize];
+
+            // BMP 文件头
+            bmpData[0] = 0x42; bmpData[1] = 0x4D;                     // "BM"
+            BitConverter.GetBytes(bmpSize).CopyTo(bmpData, 2);        // 文件大小
+            BitConverter.GetBytes(54).CopyTo(bmpData, 10);            // 数据偏移
+            // DIB 头
+            BitConverter.GetBytes(40).CopyTo(bmpData, 14);            // DIB 头大小
+            BitConverter.GetBytes(nWidth).CopyTo(bmpData, 18);        // 宽度
+            BitConverter.GetBytes(nHeight).CopyTo(bmpData, 22);       // 高度
+            bmpData[26] = 1; bmpData[27] = 0;                         // 颜色平面
+            bmpData[28] = 24; bmpData[29] = 0;                        // 位深
+            BitConverter.GetBytes(stride * nHeight).CopyTo(bmpData, 34); // 图像大小
+
+            // 复制像素数据（上下翻转）
+            int copyLen = Math.Min(pData.Length, stride * nHeight);
+            for (int h = 0; h < nHeight; h++)
+            {
+                int srcRow = h * stride;
+                int dstRow = (nHeight - 1 - h) * stride;
+                Array.Copy(pData, srcRow, bmpData, 54 + dstRow, Math.Min(stride, copyLen - srcRow));
+            }
+
+            File.WriteAllBytes(bmpPath, bmpData);
         }
 
         private bool IsMonoPixelFormat(MyCamera.MvGvspPixelType enType)
