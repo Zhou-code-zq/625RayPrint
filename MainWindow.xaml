@@ -351,7 +351,7 @@
                     </StackPanel>
                 </TabItem.Header>
                 <!-- 质检与监控内容 - 使用Frame导航到VisionInspectionPage -->
-                <Frame x:Name="VisionFrame" NavigationUIVisibility="Hidden" Source="/VisionInspectionPage.xaml"/>
+                <Frame x:Name="VisionFrame" NavigationUIVisibility="Hidden"/>
             </TabItem>
 
             <!-- 6. 参数配置标签页 -->
@@ -363,7 +363,7 @@
                     </StackPanel>
                 </TabItem.Header>
                 <!-- 参数配置内容 - 使用Frame导航到ParameterConfigPage -->
-                <Frame x:Name="ConfigFrame" NavigationUIVisibility="Hidden" Source="/ParameterConfigPage.xaml"/>
+                <Frame x:Name="ConfigFrame" NavigationUIVisibility="Hidden"/>
             </TabItem>
 
             <!-- 7. 退出系统标签项（按钮功能） -->
