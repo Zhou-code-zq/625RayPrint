@@ -12,7 +12,7 @@ using MvCamCtrl.NET;
 
 namespace WpfApp1
 {
-    public partial class VisionInspectionPage : Page
+    public partial class VisionInspectionPage : UserControl
     {
         // ============ SDK 4.7.0 回调取图 ============
         // 参考: shankeda 项目 (https://gitee.com/zhouguangya/shankeda)

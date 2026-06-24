@@ -6,6 +6,7 @@
         Background="#F5F7FA"
         WindowState="Maximized"
         
+        xmlns:local="clr-namespace:WpfApp1"
         WindowStyle="None">
 
     <Window.Resources>
@@ -350,9 +351,8 @@
                         <TextBlock Text="质检与监控"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- 质检与监控内容 - 使用Frame导航到VisionInspectionPage -->
-                <Frame x:Name="VisionFrame" NavigationUIVisibility="Hidden"
-                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                <!-- 质检与监控内容 - 直接用 UserControl -->
+                <local:VisionInspectionPage HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </TabItem>
 
             <!-- 6. 参数配置标签页 -->

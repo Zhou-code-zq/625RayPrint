@@ -32,11 +32,7 @@ namespace WpfApp1
                 _configPage = new ParameterConfigPage();
                 _configPage.ConfigSaved += OnConfigSaved;
 
-                // 创建质检与监控页面实例
-                _visionPage = new VisionInspectionPage();
-
-                // 导航到页面
-                VisionFrame.Navigate(_visionPage);
+                // 导航到参数配置页面（VisionInspectionPage已在XAML中直接声明）
                 ConfigFrame.Navigate(_configPage);
             }
             catch (Exception ex)
