@@ -343,16 +343,14 @@
                 </Border>
             </TabItem>
 
-            <!-- 5. 质检与监控标签页 -->
-            <TabItem Style="{StaticResource TabItemStyle}">
+            <!-- 5. 质检与监控标签页 - 内容由代码动态创建 -->
+            <TabItem Style="{StaticResource TabItemStyle}" x:Name="VisionTabItem">
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="✅" Width="30"/>
                         <TextBlock Text="质检与监控"/>
                     </StackPanel>
                 </TabItem.Header>
-                <!-- 质检与监控内容 - 直接用 UserControl -->
-                <local:VisionInspectionPage HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             </TabItem>
 
             <!-- 6. 参数配置标签页 -->

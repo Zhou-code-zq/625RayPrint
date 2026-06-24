@@ -32,8 +32,20 @@ namespace WpfApp1
                 _configPage = new ParameterConfigPage();
                 _configPage.ConfigSaved += OnConfigSaved;
 
-                // 导航到参数配置页面（VisionInspectionPage已在XAML中直接声明）
+                // 导航到参数配置页面
                 ConfigFrame.Navigate(_configPage);
+
+                // 动态创建质检与监控页面（避免 XAML 声明式创建时构造函数异常被静默忽略）
+                try
+                {
+                    uint sdkDeviceType = MvCamCtrl.NET.MyCamera.MV_GIGE_DEVICE | MvCamCtrl.NET.MyCamera.MV_USB_DEVICE;
+                    _visionPage = new VisionInspectionPage("", sdkDeviceType);
+                    VisionTabItem.Content = _visionPage;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"创建质检与监控页面失败: {ex}", "严重错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
             catch (Exception ex)
             {
