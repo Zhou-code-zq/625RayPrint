@@ -9,7 +9,15 @@
       Title="VisionInspectionPage"
       Loaded="VisionInspectionPage_Loaded"
       Unloaded="VisionInspectionPage_Unloaded">
-    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+    <!-- 诊断：页面是否加载可见 -->
+    <Border x:Name="DiagBorder" Background="Yellow" Padding="10" 
+            HorizontalAlignment="Center" VerticalAlignment="Center" 
+            Visibility="Visible" Panel.ZIndex="9999">
+        <TextBlock Text="⚠️ 诊断：VisionInspectionPage已加载！如果是黄底黑字说明页面正常渲染。" 
+                   FontSize="18" FontWeight="Bold" Foreground="Black"/>
+    </Border>
+
+    <Grid x:Name="MainGrid" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Visible">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>

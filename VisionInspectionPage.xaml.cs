@@ -74,9 +74,17 @@ namespace WpfApp1
 
         public VisionInspectionPage()
         {
+            // 诊断1：构造函数是否被调用
+            System.Windows.MessageBox.Show(
+                "VisionInspectionPage 构造函数开始\n如果看不到此弹窗，说明 XAML 声明创建失败。",
+                "诊断", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+
             try
             {
                 InitializeComponent();
+                System.Windows.MessageBox.Show(
+                    "InitializeComponent() 成功完成\n如果能看到此弹窗，说明 XAML 加载正常，诊断黄条应该显示在最上层。",
+                    "诊断", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -91,6 +99,10 @@ namespace WpfApp1
             try
             {
                 AppendLog("[视觉] 页面加载成功");
+
+                // 诊断3：Loaded 后隐藏黄色诊断条（确认页面正常后）
+                DiagBorder.Visibility = System.Windows.Visibility.Collapsed;
+                MainGrid.Visibility = System.Windows.Visibility.Visible;
             }
             catch (Exception ex)
             {
