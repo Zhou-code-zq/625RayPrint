@@ -72,9 +72,31 @@ namespace WpfApp1
             s_nDeviceType = deviceType;
         }
 
+        public VisionInspectionPage()
+        {
+            try
+            {
+                InitializeComponent();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"[视觉] InitializeComponent失败: {ex.Message}\n{ex.StackTrace}", "构造函数错误",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                throw;
+            }
+        }
+
         private void VisionInspectionPage_Loaded(object sender, RoutedEventArgs e)
         {
-            AppendLog("[视觉] 页面加载");
+            try
+            {
+                AppendLog("[视觉] 页面加载成功");
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"[视觉] 页面Loaded异常: {ex.Message}\n{ex.StackTrace}", "运行时错误",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
         }
 
         private void VisionInspectionPage_Unloaded(object sender, RoutedEventArgs e)
