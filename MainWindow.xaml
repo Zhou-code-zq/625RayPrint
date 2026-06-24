@@ -5,7 +5,7 @@
         WindowStartupLocation="CenterScreen"
         Background="#F5F7FA"
         WindowState="Maximized"
-        Loaded="Window_Loaded"
+        Loaded="MainWindow_Loaded"
         
         xmlns:local="clr-namespace:WpfApp1"
         WindowStyle="None">

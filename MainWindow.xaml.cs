@@ -15,11 +15,11 @@ namespace WpfApp1
         public MainWindow()
         {
             InitializeComponent();
-            this.Loaded += MainWindow_Loaded;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            System.Windows.MessageBox.Show("MainWindow_Loaded 被调用了！", "诊断");
             // 页面加载时初始化子页面
             InitializePages();
         }
